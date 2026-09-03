@@ -1,0 +1,462 @@
+
+<!-- 全屏沉浸阅读器 - 交互增强版 (Reader) -->
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>腐朽世界 - 沉浸阅读</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind Configuration -->
+    <script data-purpose="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                theme: {
+                  bg: 'var(--bg-color)',
+                  card: 'var(--card-color)',
+                  surface: 'var(--surface-color)',
+                  text: 'var(--text-color)',
+                  muted: 'var(--muted-color)',
+                  accent: 'var(--accent-color)',
+                  'accent-hover': 'var(--accent-hover-color)',
+                  highlight: 'var(--highlight-color)',
+                  border: 'var(--border-color)'
+                }
+              },
+              fontFamily: {
+                serif: ['"Noto Serif SC"', '"Source Han Serif SC"', 'STSong', 'serif'],
+                sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"PingFang SC"', 'sans-serif']
+              }
+            }
+          }
+        }
+    </script>
+    <!-- Custom Styles for Typography & Animations -->
+    <style data-purpose="typography-and-effects">
+        :root {
+          --bg-color: #F7F3E9;
+          --card-color: #FCF9F2;
+          --surface-color: #EFE9DC;
+          --text-color: #2C2825;
+          --muted-color: #78716C;
+          --accent-color: #8C6D46;
+          --accent-hover-color: #745837;
+          --highlight-color: rgba(140, 109, 70, 0.15);
+          --border-color: #E2D9C8;
+        }
+
+        .theme-dark-blue {
+          --bg-color: #1E3A5F;
+          --card-color: #24446E;
+          --surface-color: #172E4D;
+          --text-color: #E2E8F0;
+          --muted-color: #94A3B8;
+          --accent-color: #38BDF8;
+          --accent-hover-color: #0EA5E9;
+          --highlight-color: rgba(56, 189, 248, 0.2);
+          --border-color: #2E5282;
+        }
+
+        .pt-safe {
+          padding-top: env(safe-area-inset-top, 44px);
+        }
+        .pb-safe {
+          padding-bottom: env(safe-area-inset-bottom, 34px);
+        }
+
+        @keyframes gentlePulse {
+          0%, 100% {
+            background-color: var(--highlight-color);
+            border-color: var(--accent-color);
+          }
+          50% {
+            background-color: rgba(140, 109, 70, 0.25);
+            border-color: var(--accent-color);
+          }
+        }
+
+        .active-tts-highlight {
+          animation: gentlePulse 3s ease-in-out infinite;
+          border-radius: 4px;
+          padding: 2px 4px;
+          margin: -2px -4px;
+          border-bottom: 2px solid var(--accent-color);
+        }
+
+        ::-webkit-scrollbar {
+          width: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: var(--border-color);
+          border-radius: 3px;
+        }
+
+        /* Modal transitions */
+        .modal-backdrop {
+          backdrop-filter: blur(8px);
+          transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-theme-bg text-theme-text font-serif min-h-screen antialiased flex justify-center selection:bg-theme-accent selection:text-white transition-colors duration-300">
+<!-- Mobile iOS Viewport Shell -->
+<div class="relative w-full max-w-md min-h-screen flex flex-col justify-between shadow-2xl bg-theme-bg overflow-hidden border-x border-theme-border/40 transition-colors duration-300" id="app-shell">
+    <!-- BEGIN: TopBar -->
+    <header class="sticky top-0 z-30 w-full backdrop-blur-md bg-theme-bg/85 border-b border-theme-border/60 transition-all duration-300">
+        <div class="pt-safe px-7 flex justify-between items-center text-[12px] font-sans font-medium text-theme-muted/90 pt-3 pb-1 tracking-tight">
+            <span id="current-time">11:44</span>
+            <div class="flex items-center space-x-1.5 text-xs">
+                <svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7z"></path></svg>
+                <svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"></path></svg>
+                <div class="w-5 h-2.5 border border-theme-muted/90 rounded-[3px] p-0.5 flex items-center">
+                    <div class="h-full bg-theme-muted/90 w-4/5 rounded-[1px]"></div>
+                </div>
+            </div>
+        </div>
+        <div class="px-5 py-3 flex items-center justify-between font-sans">
+            <div class="flex items-center space-x-3">
+                <button aria-label="返回书库" class="p-2 -ml-2 rounded-full hover:bg-theme-surface/70 text-theme-muted active:scale-95 transition-all" onclick="alert('已返回书库')">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+                        <path d="M15.75 19.5L8.25 12l7.5-7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+                <div>
+                    <h1 class="text-base font-semibold text-theme-text tracking-wide leading-tight">腐朽世界</h1>
+                    <p class="text-[11px] text-theme-muted font-normal tracking-wider">第359章 · 苦难（一）</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <!-- Theme Switcher Button -->
+                <button aria-label="切换主题" class="p-2 rounded-lg text-theme-muted border border-theme-border/60 hover:bg-theme-surface/60 transition-all active:scale-95 flex items-center gap-1 text-xs" id="theme-toggle-btn">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </button>
+                <!-- Quick Font Size Button -->
+                <button aria-label="排版设置" class="px-2.5 py-1 text-xs font-medium rounded-lg text-theme-muted border border-theme-border/60 hover:bg-theme-surface/60 transition-colors active:scale-95" id="font-settings-btn">
+                    Aa
+                </button>
+                <!-- Menu Button -->
+                <button aria-label="章节与菜单" class="p-2 rounded-full hover:bg-theme-surface/70 text-theme-muted active:scale-95 transition-all" id="toc-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+                        <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- END: TopBar -->
+    <!-- BEGIN: ReaderContent -->
+    <main class="flex-1 px-6 pt-7 pb-48 overflow-y-auto leading-loose text-justify selection:bg-theme-highlight select-text transition-all" id="reader-content-area">
+        <h2 class="text-2xl font-bold text-theme-text mb-8 tracking-normal" id="chapter-title">
+            359 苦难 一
+        </h2>
+        <div class="space-y-6 text-[18px] text-theme-text/90 tracking-wide font-normal leading-[2.1]" id="novel-text-body">
+            <p>
+                359苦难 一 对于习武，林辉的想法很简单，他只打算拿这个做一个引子，为以后自己突然舞刀弄枪起来时，打个前提。
+            </p>
+            <p>
+<span class="active-tts-highlight text-theme-text font-medium" data-purpose="current-speaking-sentence">
+            另外也有点想见识见识这个世界的基础武学体系的意思。
+          </span>
+            </p>
+            <p>
+                所以在得到了他的肯定后，林向南和付云心立马收拾东西，第二天便带着他上门报名去了。
+            </p>
+            <p>
+                天气干旱，出了门在去往剑馆的路上，林向南带着林辉一前一后顺着马路边前行。青石街道被日光晒得泛出白芒，风卷起微薄的尘土，路边小摊的油纸伞早已褪尽了鲜亮色彩。
+            </p>
+            <p>
+                偶有几个推车的货郎匆匆而过，车轴发出轻微干涩的吱呀声，更显得四周沉闷而寂寥。林辉抬手遮了遮刺目的天光，微眯着眼睛打量着这处陌生的街景。
+            </p>
+        </div>
+    </main>
+    <!-- END: ReaderContent -->
+    <!-- BEGIN: FloatingAudioPlayerDock -->
+    <div class="fixed bottom-6 inset-x-0 mx-auto w-[92%] max-w-[400px] z-40 transition-all duration-300 transform translate-y-0" id="audio-dock">
+        <section class="backdrop-blur-xl bg-theme-card/95 border border-theme-border/80 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.1)] p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between pb-2 border-b border-theme-border/50 font-sans">
+                <div class="flex items-center space-x-2.5">
+<span class="flex h-2.5 w-2.5 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-theme-accent opacity-75" id="audio-ping"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-theme-accent"></span>
+</span>
+                    <span class="text-xs font-semibold tracking-wider text-theme-accent uppercase">TTS 语音朗读中</span>
+                    <span class="text-[11px] text-theme-muted bg-theme-surface/70 px-1.5 py-0.5 rounded">精品女声 · 02</span>
+                </div>
+                <button aria-label="收起朗读器" class="text-theme-muted hover:text-theme-text p-1 rounded-md hover:bg-theme-surface/60 transition-colors" id="collapse-dock-btn">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+                        <path d="M19.5 8.25l-7.5 7.5-7.5-7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="bg-theme-bg/80 rounded-xl px-3.5 py-2.5 border border-theme-border/40">
+                <p class="text-xs text-theme-muted line-clamp-1 italic font-serif">
+                    “另外也有点想见识见识这个世界的基础武学体系的意思...”
+                </p>
+            </div>
+            <div class="space-y-1 font-sans">
+                <div class="w-full bg-theme-border/60 h-1.5 rounded-full overflow-hidden relative cursor-pointer" id="progress-container">
+                    <div class="bg-theme-accent h-full rounded-full w-[38%] transition-all duration-150" id="progress-bar-fill"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-theme-muted tracking-tight pt-0.5">
+                    <span>段落 02 / 05</span>
+                    <span id="time-indicator">01:14 / 03:20</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 font-sans">
+                <button aria-label="调节语速" class="text-xs font-semibold text-theme-accent bg-theme-surface px-2.5 py-1.5 rounded-lg hover:bg-theme-border/60 transition-colors active:scale-95" id="speed-toggle-btn">
+                    1.25x
+                </button>
+                <div class="flex items-center space-x-3">
+                    <button aria-label="上一句" class="p-2 text-theme-muted hover:text-theme-text active:scale-95 transition-transform" id="prev-btn">
+                        <svg class="w-5 h-5 fill-current" viewbox="0 0 24 24">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
+                        </svg>
+                    </button>
+                    <button aria-label="暂停朗读" class="w-12 h-12 rounded-full bg-theme-accent hover:bg-theme-accent-hover text-white flex items-center justify-center shadow-md active:scale-90 transition-all" id="play-pause-btn">
+                        <svg class="w-6 h-6 fill-current" id="play-pause-icon" viewbox="0 0 24 24">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
+                        </svg>
+                    </button>
+                    <button aria-label="下一句" class="p-2 text-theme-muted hover:text-theme-text active:scale-95 transition-transform" id="next-btn">
+                        <svg class="w-5 h-5 fill-current" viewbox="0 0 24 24">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <button aria-label="音量与音调设置" class="p-2 text-theme-muted hover:text-theme-text rounded-lg hover:bg-theme-surface transition-colors active:scale-95" id="settings-audio-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+                        <path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+            </div>
+        </section>
+    </div>
+    <!-- END: FloatingAudioPlayerDock -->
+    <!-- BEGIN: FloatingMiniTriggerButton -->
+    <div class="fixed bottom-6 left-5 z-20 pointer-events-none opacity-0 transition-opacity duration-300" id="mini-trigger">
+        <button aria-label="展开语音朗读" class="pointer-events-auto bg-theme-card border border-theme-border text-theme-accent p-3 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform" id="expand-dock-btn">
+            <svg class="w-5 h-5 fill-current" viewbox="0 0 24 24">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"></path>
+            </svg>
+        </button>
+    </div>
+    <!-- END: FloatingMiniTriggerButton -->
+    <!-- BEGIN: BottomReadingMeta -->
+    <footer class="fixed bottom-0 inset-x-0 pb-safe pointer-events-none z-10 flex justify-between px-6 py-2 text-[11px] font-sans text-theme-muted/70 bg-gradient-to-t from-theme-bg via-theme-bg/80 to-transparent transition-colors">
+        <span>第 359 章 / 1280 章</span>
+        <span id="battery-status">电量 74%</span>
+    </footer>
+    <!-- END: BottomReadingMeta -->
+</div>
+<!-- BEGIN: Modals (Font Settings & TOC & Audio Controls) -->
+<!-- Font Settings Modal -->
+<div class="fixed inset-0 z-50 bg-black/40 modal-backdrop hidden flex items-end sm:items-center justify-center p-0 sm:p-4" id="font-modal">
+    <div class="bg-theme-card w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-6 border border-theme-border shadow-2xl font-sans space-y-4">
+        <div class="flex justify-between items-center pb-3 border-b border-theme-border">
+            <h3 class="font-semibold text-theme-text text-base">排版设置</h3>
+            <button class="text-theme-muted hover:text-theme-text p-1" id="close-font-modal"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-theme-muted">正文字号</span>
+                <div class="flex items-center space-x-3">
+                    <button class="px-3 py-1 bg-theme-surface text-theme-text rounded-lg text-sm font-bold active:scale-95" id="font-decrease">A-</button>
+                    <span class="text-sm font-semibold text-theme-text" id="font-size-display">18px</span>
+                    <button class="px-3 py-1 bg-theme-surface text-theme-text rounded-lg text-sm font-bold active:scale-95" id="font-increase">A+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- TOC Modal -->
+<div class="fixed inset-0 z-50 bg-black/40 modal-backdrop hidden flex items-center justify-center p-4" id="toc-modal">
+    <div class="bg-theme-card w-full max-w-sm rounded-2xl p-6 border border-theme-border shadow-2xl font-sans space-y-4 max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center pb-3 border-b border-theme-border">
+            <h3 class="font-semibold text-theme-text text-base">目录导航</h3>
+            <button class="text-theme-muted hover:text-theme-text p-1" id="close-toc-modal"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div class="overflow-y-auto space-y-2 flex-1 pr-1">
+            <div class="p-3 rounded-lg hover:bg-theme-surface text-sm text-theme-muted cursor-pointer transition-colors">第 357 章 · 远行前</div>
+            <div class="p-3 rounded-lg hover:bg-theme-surface text-sm text-theme-muted cursor-pointer transition-colors">第 358 章 · 剑馆重重</div>
+            <div class="p-3 rounded-lg bg-theme-surface text-sm font-semibold text-theme-accent cursor-pointer">第 359 章 · 苦难（一）</div>
+            <div class="p-3 rounded-lg hover:bg-theme-surface text-sm text-theme-muted cursor-pointer transition-colors">第 360 章 · 苦难（二）</div>
+            <div class="p-3 rounded-lg hover:bg-theme-surface text-sm text-theme-muted cursor-pointer transition-colors">第 361 章 · 基础武学</div>
+        </div>
+    </div>
+</div>
+<!-- Audio Extra Settings Modal (Volume / Pitch) -->
+<div class="fixed inset-0 z-50 bg-black/40 modal-backdrop hidden flex items-end sm:items-center justify-center p-0 sm:p-4" id="audio-settings-modal">
+    <div class="bg-theme-card w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-6 border border-theme-border shadow-2xl font-sans space-y-4">
+        <div class="flex justify-between items-center pb-3 border-b border-theme-border">
+            <h3 class="font-semibold text-theme-text text-base">朗读音量与高级设置</h3>
+            <button class="text-theme-muted hover:text-theme-text p-1" id="close-audio-modal"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div class="space-y-4">
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs text-theme-muted">
+                    <span>音量大小</span>
+                    <span id="volume-val">80%</span>
+                </div>
+                <input class="w-full accent-theme-accent cursor-pointer" id="volume-slider" max="100" min="0" type="range" value="80"/>
+            </div>
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs text-theme-muted">
+                    <span>声音语调</span>
+                    <span id="pitch-val">正常</span>
+                </div>
+                <input class="w-full accent-theme-accent cursor-pointer" id="pitch-slider" max="3" min="1" step="1" type="range" value="2"/>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- END: Modals -->
+<!-- BEGIN: Interactive JavaScript Logic -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Theme toggle
+      const themeToggleBtn = document.getElementById('theme-toggle-btn');
+      let isDarkBlue = false;
+      themeToggleBtn.addEventListener('click', () => {
+        isDarkBlue = !isDarkBlue;
+        if (isDarkBlue) {
+          document.documentElement.classList.add('theme-dark-blue');
+        } else {
+          document.documentElement.classList.remove('theme-dark-blue');
+        }
+      });
+
+      // Font size controls
+      const fontSettingsBtn = document.getElementById('font-settings-btn');
+      const fontModal = document.getElementById('font-modal');
+      const closeFontModal = document.getElementById('close-font-modal');
+      const fontIncrease = document.getElementById('font-increase');
+      const fontDecrease = document.getElementById('font-decrease');
+      const fontSizeDisplay = document.getElementById('font-size-display');
+      const novelBody = document.getElementById('novel-text-body');
+
+      let currentFontSize = 18;
+
+      fontSettingsBtn.addEventListener('click', () => fontModal.classList.remove('hidden'));
+      closeFontModal.addEventListener('click', () => fontModal.classList.add('hidden'));
+
+      fontIncrease.addEventListener('click', () => {
+        if (currentFontSize < 24) {
+          currentFontSize += 2;
+          novelBody.style.fontSize = currentFontSize + 'px';
+          fontSizeDisplay.textContent = currentFontSize + 'px';
+        }
+      });
+
+      fontDecrease.addEventListener('click', () => {
+        if (currentFontSize > 14) {
+          currentFontSize -= 2;
+          novelBody.style.fontSize = currentFontSize + 'px';
+          fontSizeDisplay.textContent = currentFontSize + 'px';
+        }
+      });
+
+      // TOC modal
+      const tocBtn = document.getElementById('toc-btn');
+      const tocModal = document.getElementById('toc-modal');
+      const closeTocModal = document.getElementById('close-toc-modal');
+      tocBtn.addEventListener('click', () => tocModal.classList.remove('hidden'));
+      closeTocModal.addEventListener('click', () => tocModal.classList.add('hidden'));
+
+      // Audio Dock collapse / expand
+      const audioDock = document.getElementById('audio-dock');
+      const collapseDockBtn = document.getElementById('collapse-dock-btn');
+      const miniTrigger = document.getElementById('mini-trigger');
+      const expandDockBtn = document.getElementById('expand-dock-btn');
+
+      collapseDockBtn.addEventListener('click', () => {
+        audioDock.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
+        miniTrigger.classList.remove('opacity-0', 'pointer-events-none');
+      });
+
+      expandDockBtn.addEventListener('click', () => {
+        audioDock.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
+        miniTrigger.classList.add('opacity-0', 'pointer-events-none');
+      });
+
+      // Play/Pause toggle
+      const playPauseBtn = document.getElementById('play-pause-btn');
+      const playPauseIcon = document.getElementById('play-pause-icon');
+      const audioPing = document.getElementById('audio-ping');
+      let isPlaying = true;
+
+      playPauseBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+          playPauseIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>';
+          audioPing.classList.remove('hidden');
+        } else {
+          playPauseIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+          audioPing.classList.add('hidden');
+        }
+      });
+
+      // Speed toggle (1.0x, 1.25x, 1.5x)
+      const speedToggleBtn = document.getElementById('speed-toggle-btn');
+      const speeds = ['1.0x', '1.25x', '1.5x'];
+      let speedIndex = 1;
+      speedToggleBtn.addEventListener('click', () => {
+        speedIndex = (speedIndex + 1) % speeds.length;
+        speedToggleBtn.textContent = speeds[speedIndex];
+      });
+
+      // Progress bar interactive scrubbing
+      const progressContainer = document.getElementById('progress-container');
+      const progressBarFill = document.getElementById('progress-bar-fill');
+      const timeIndicator = document.getElementById('time-indicator');
+
+      progressContainer.addEventListener('click', (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const width = rect.width;
+        const percentage = Math.max(0, Math.min(100, (clickX / width) * 100));
+        progressBarFill.style.width = percentage + '%';
+        // Simulate time update based on percentage
+        const totalSeconds = 200; // 03:20
+        const currentSec = Math.floor((percentage / 100) * totalSeconds);
+        const min = String(Math.floor(currentSec / 60)).padStart(2, '0');
+        const sec = String(currentSec % 60).padStart(2, '0');
+        timeIndicator.textContent = `${min}:${sec} / 03:20`;
+      });
+
+      // Audio Extra Settings Modal
+      const settingsAudioBtn = document.getElementById('settings-audio-btn');
+      const audioSettingsModal = document.getElementById('audio-settings-modal');
+      const closeAudioModal = document.getElementById('close-audio-modal');
+      const volumeSlider = document.getElementById('volume-slider');
+      const volumeVal = document.getElementById('volume-val');
+      const pitchSlider = document.getElementById('pitch-slider');
+      const pitchVal = document.getElementById('pitch-val');
+
+      settingsAudioBtn.addEventListener('click', () => audioSettingsModal.classList.remove('hidden'));
+      closeAudioModal.addEventListener('click', () => audioSettingsModal.classList.add('hidden'));
+
+      volumeSlider.addEventListener('input', (e) => {
+        volumeVal.textContent = e.target.value + '%';
+      });
+
+      pitchSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        const labels = ['偏低', '正常', '偏高'];
+        pitchVal.textContent = labels[val - 1];
+      });
+
+      // Real-time clock update
+      setInterval(() => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('current-time').textContent = `${hours}:${minutes}`;
+      }, 1000);
+    });
+</script>
+<!-- END: Interactive JavaScript Logic -->
+</body></html>

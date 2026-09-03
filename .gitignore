@@ -1,0 +1,72 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# FVM
+.fvm/
+
+# IDE / editors
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Android generated files
+.gradle/
+**/.gradle/
+android/local.properties
+android/.cxx/
+android/.externalNativeBuild/
+android/captures/
+*.apk
+*.aab
+output.json
+*.hprof
+
+# Android signing / secrets
+*.jks
+*.keystore
+android/key.properties
+key.properties
+google-services.json
+
+# iOS generated files
+**/Pods/
+**/.symlinks/
+**/DerivedData/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.*
+ServiceDefinitions.json
+xcuserdata/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+
+# Flutter obfuscation/debug symbols
+app.*.symbols
+
+# Local env / secrets
+.env
+.env.*
+!.env.example

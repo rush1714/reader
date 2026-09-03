@@ -1,0 +1,492 @@
+<!-- 书库首页 - 羊皮暖黄 (Warm Parchment) -->
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>我的书库 - 羊皮纸暖黄</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "parchment-bg": "#F5EFE3",
+                "parchment-bg-subtle": "#EDE5D6",
+                "parchment-card": "#FAF7F0",
+                "parchment-card-hover": "#FCFBF7",
+                "parchment-text": "#2C2825",
+                "parchment-muted": "#6E665E",
+                "parchment-light": "#9E978E",
+                "parchment-accent": "#6C4A2D",
+                "parchment-accent-hover": "#573B23",
+                "parchment-accent-light": "#F0E4D3",
+                "parchment-accent-dim": "#8C5B32",
+                "parchment-border": "#E3D8C6",
+                "parchment-border-light": "#ECE3D4",
+                "parchment-gold": "#CBB279"
+              },
+              fontFamily: {
+                serif: ["\"Noto Serif SC\"", "Literata", "\"Source Serif 4\"", "serif"],
+                sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+                inter: ["Inter", "sans-serif"],
+                literata: ["Literata", "serif"]
+              },
+              boxShadow: {
+                warm: "0 8px 24px -6px rgba(108, 74, 45, 0.08), 0 2px 6px -1px rgba(108, 74, 45, 0.04)",
+                book: "0 8px 18px -4px rgba(78, 54, 34, 0.22), 0 2px 5px -2px rgba(78, 54, 34, 0.12)",
+                hero: "0 10px 28px -6px rgba(108, 74, 45, 0.12), 0 4px 12px -2px rgba(108, 74, 45, 0.05)",
+                fab: "0 8px 20px -4px rgba(108, 74, 45, 0.3), 0 4px 10px rgba(0,0,0,0.06)"
+              }
+            }
+          }
+        };
+    </script>
+    <style>
+        body {
+          -webkit-tap-highlight-color: transparent;
+          font-feature-settings: "palt";
+          min-height: max(884px, 100dvh);
+          background-color: #F5EFE3;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        /* 仿真书脊纸质光影 */
+        .book-spine-effect {
+          position: relative;
+          overflow: hidden;
+        }
+        .book-spine-effect::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 6px;
+          background: linear-gradient(to right, rgba(0,0,0,0.2) 0%, rgba(255,255,255,0.25) 45%, rgba(0,0,0,0.05) 100%);
+          z-index: 10;
+          pointer-events: none;
+        }
+        .book-spine-effect::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+          pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-parchment-bg text-parchment-text min-h-screen flex flex-col font-sans antialiased selection:bg-parchment-accent-light selection:text-parchment-accent">
+<!-- iOS 顶部状态栏占位 (安全区) -->
+<div class="h-11 w-full shrink-0 flex items-center justify-between px-7 pt-2 text-[13px] font-semibold text-parchment-text tracking-tight select-none">
+    <span class="font-inter font-medium text-[14px]">11:44</span>
+    <div class="flex items-center gap-1.5 text-parchment-muted">
+        <!-- 信号 -->
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+            <path d="M2 20h.01"></path><path d="M7 20v-4"></path><path d="M12 20v-8"></path><path d="M17 20V4"></path>
+        </svg>
+        <!-- WiFi -->
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+            <path d="M12 20h.01"></path><path d="M5 12.859a10 10 0 0 1 14 0"></path><path d="M8.5 16.429a5 5 0 0 1 7 0"></path>
+        </svg>
+        <!-- 电池 -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+            <rect height="10" rx="2" ry="2" width="16" x="2" y="7"></rect><line x1="22" x2="22" y1="11" y2="13"></line>
+            <rect fill="currentColor" height="6" stroke="none" width="10" x="4" y="9"></rect>
+        </svg>
+    </div>
+</div>
+<!-- 顶部主操作栏 (Top Header) -->
+<header class="sticky top-0 z-30 bg-parchment-bg/92 backdrop-blur-md px-5 pt-2 pb-3 flex items-center justify-between transition-colors border-b border-parchment-border/70">
+    <div class="flex items-baseline gap-2.5">
+        <h1 class="font-serif text-2xl font-bold tracking-tight text-parchment-text">我的书库</h1>
+        <span class="text-[11px] font-semibold tracking-wider text-parchment-muted/80 uppercase font-inter">WARM PARCHMENT</span>
+    </div>
+    <div class="flex items-center gap-1.5 text-parchment-muted">
+        <button class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-parchment-card/80 active:scale-95 transition-all text-parchment-muted hover:text-parchment-accent" title="搜索书籍">
+            <svg class="w-[19px] h-[19px]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" x2="16.65" y1="21" y2="16.65"></line>
+            </svg>
+        </button>
+        <button class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-parchment-card/80 active:scale-95 transition-all text-parchment-muted hover:text-parchment-accent" title="分类整理">
+            <svg class="w-[19px] h-[19px]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+        </button>
+        <button class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-parchment-card/80 active:scale-95 transition-all text-parchment-muted hover:text-parchment-accent" title="更多操作">
+            <svg class="w-[19px] h-[19px]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                <circle cx="12" cy="12" r="1.5"></circle>
+                <circle cx="12" cy="5" r="1.5"></circle>
+                <circle cx="12" cy="19" r="1.5"></circle>
+            </svg>
+        </button>
+    </div>
+</header>
+<!-- 主滚动区域 -->
+<main class="flex-1 overflow-y-auto px-5 pt-3 pb-24 space-y-5">
+    <!-- 1. 正在阅读 置顶 Hero 卡片 -->
+    <section class="relative">
+        <div class="flex items-center justify-between mb-2.5 px-0.5">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-parchment-accent animate-pulse"></span>
+                <span class="text-[11px] font-semibold tracking-wider text-parchment-accent uppercase font-inter">NOW READING · 正在阅读</span>
+            </div>
+            <span class="text-[11px] text-parchment-light font-medium">10分钟前翻阅</span>
+        </div>
+        <div class="bg-parchment-card rounded-2xl p-4 shadow-hero border border-parchment-border relative overflow-hidden group">
+            <!-- 温暖微晕光斑 -->
+            <div class="absolute -right-8 -bottom-8 w-44 h-44 bg-[#EADBCA]/45 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex gap-4 items-stretch relative z-10">
+                <!-- 仿古皮面/纸面书封 -->
+                <div class="w-24 h-36 shrink-0 rounded-lg book-spine-effect shadow-book bg-gradient-to-br from-[#4A321E] via-[#3B2615] to-[#25170B] flex flex-col justify-between p-2.5 text-white/95">
+                    <div class="flex justify-between items-start">
+                        <svg class="w-4 h-4 text-parchment-gold" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                        <span class="text-[9px] px-1.5 py-0.5 bg-black/30 border border-parchment-gold/40 rounded text-[#F5E6CC] backdrop-blur-sm font-inter">EPUB</span>
+                    </div>
+                    <div>
+                        <p class="font-serif text-[15px] font-bold tracking-wider leading-snug text-[#FAF3E7]">腐朽世界</p>
+                        <p class="text-[10px] text-[#D8C7B0] mt-0.5 font-light">滚开 · 著</p>
+                    </div>
+                </div>
+                <!-- 右侧书籍阅读信息及操作 -->
+                <div class="flex-1 flex flex-col justify-between py-0.5">
+                    <div>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h2 class="font-serif text-lg font-bold text-parchment-text line-clamp-1">腐朽世界</h2>
+                                <p class="text-xs text-parchment-muted mt-0.5 font-medium">作者：滚开 · 东方玄幻 · 连载中</p>
+                            </div>
+                            <button class="text-parchment-light hover:text-parchment-accent transition-colors p-1 -mr-1" title="书签">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <!-- 章节进度 -->
+                        <div class="mt-3">
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-parchment-muted">已读至 <strong class="text-parchment-text font-semibold">第 359 章</strong></span>
+                                <span class="font-inter font-bold text-parchment-accent text-xs">59%</span>
+                            </div>
+                            <!-- 进度条 -->
+                            <div class="w-full h-1.5 bg-parchment-border rounded-full overflow-hidden">
+                                <div class="h-full bg-parchment-accent rounded-full transition-all duration-500" style="width: 59%;"></div>
+                            </div>
+                            <p class="text-[11px] text-parchment-light mt-1.5 font-sans">全书共 609 章 · 剩余约 2.4 小时读完</p>
+                        </div>
+                    </div>
+                    <!-- 续读 CTA 按钮 -->
+                    <div class="pt-2 flex items-center justify-between">
+                        <a class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-parchment-accent hover:bg-parchment-accent-hover text-[#FAF7F0] text-xs font-semibold shadow-sm transition-all active:scale-95" href="#">
+                            <svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            <span>继续阅读</span>
+                        </a>
+                        <button class="text-xs text-parchment-muted hover:text-parchment-accent flex items-center gap-0.5 py-1 px-2.5 rounded-lg hover:bg-parchment-bg transition-colors">
+                            <span>目录</span>
+                            <svg class="w-3.5 h-3.5 text-parchment-light" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- 2. 分类筛选与模式微标签栏 -->
+    <section class="space-y-3">
+        <div class="flex items-center justify-between">
+            <!-- 状态标签组 -->
+            <div class="flex items-center gap-1 bg-parchment-border/50 p-1 rounded-xl">
+                <button class="px-3 py-1 rounded-lg text-xs font-semibold bg-parchment-card text-parchment-accent shadow-sm border border-parchment-border/40 transition-all">全部 (18)</button>
+                <button class="px-3 py-1 rounded-lg text-xs font-medium text-parchment-muted hover:text-parchment-text transition-colors">在读 (4)</button>
+                <button class="px-3 py-1 rounded-lg text-xs font-medium text-parchment-muted hover:text-parchment-text transition-colors">收藏</button>
+                <button class="px-3 py-1 rounded-lg text-xs font-medium text-parchment-muted hover:text-parchment-text transition-colors">已读完</button>
+            </div>
+            <!-- 视图切换与排序 -->
+            <div class="flex items-center gap-1 text-parchment-muted">
+                <button class="p-1.5 rounded-lg bg-parchment-card text-parchment-accent shadow-sm border border-parchment-border/60" title="网格视图">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                        <rect height="7" width="7" x="3" y="3"></rect>
+                        <rect height="7" width="7" x="14" y="3"></rect>
+                        <rect height="7" width="7" x="14" y="14"></rect>
+                        <rect height="7" width="7" x="3" y="14"></rect>
+                    </svg>
+                </button>
+                <button class="p-1.5 rounded-lg hover:bg-parchment-card/60 text-parchment-light hover:text-parchment-text transition-colors" title="列表视图">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                        <line x1="3" x2="21" y1="6" y2="6"></line>
+                        <line x1="3" x2="21" y1="12" y2="12"></line>
+                        <line x1="3" x2="21" y1="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <!-- 二级状态微信息 -->
+        <div class="flex items-center justify-between text-[11px] text-parchment-muted px-1">
+<span class="flex items-center gap-1 font-medium">
+<svg class="w-3.5 h-3.5 text-parchment-accent" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<polyline points="7 15 12 20 17 15"></polyline>
+<line x1="12" x2="12" y1="9" y2="20"></line>
+<polyline points="17 9 12 4 7 9"></polyline>
+</svg>
+        按最近阅读时间排序
+      </span>
+            <span class="text-parchment-light font-inter">4 本进行中 · 14 本待读</span>
+        </div>
+    </section>
+    <!-- 3. 书架网格区域 (Book Shelf Grid) -->
+    <section class="grid grid-cols-3 gap-3.5 pt-1">
+        <!-- 书籍 1: 腐朽世界 (在读重点) -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl book-spine-effect shadow-book bg-gradient-to-br from-[#4A321E] via-[#382414] to-[#22160C] p-2.5 text-white flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-black/30 border border-white/20 backdrop-blur-sm font-medium font-inter text-[#FAF3E7]">59%</span>
+                    <button class="text-white/60 hover:text-white transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div>
+                    <span class="text-[9px] text-[#E5D2B8]/70 tracking-wider block uppercase font-inter">FANTASY</span>
+                    <h3 class="font-serif text-[13px] font-bold text-[#FAF3E7] mt-0.5 line-clamp-2 leading-tight">腐朽世界</h3>
+                    <p class="text-[10px] text-[#D8C7B0]/80 mt-1 font-light">滚开</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
+                    <div class="h-full bg-parchment-gold" style="width: 59%;"></div>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5">
+                <h4 class="text-xs font-semibold text-parchment-text truncate group-hover:text-parchment-accent transition-colors">腐朽世界</h4>
+                <p class="text-[10px] text-parchment-light mt-0.5 flex items-center justify-between">
+                    <span>第 359 章</span>
+                    <span class="text-parchment-accent font-medium">在读</span>
+                </p>
+            </div>
+        </article>
+        <!-- 书籍 2: 沉默的几何 (The Silent Geometry) -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl book-spine-effect shadow-book bg-[#ECE5D8] border border-parchment-border p-2.5 text-parchment-text flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-black/5 font-medium font-inter text-parchment-muted">45%</span>
+                    <button class="text-parchment-light hover:text-parchment-text transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="my-auto py-1 text-center">
+                    <div class="w-6 h-6 mx-auto mb-1.5 border border-parchment-accent/40 rounded-full flex items-center justify-center">
+                        <span class="w-2.5 h-2.5 bg-parchment-accent/50 rotate-45 block"></span>
+                    </div>
+                    <h3 class="font-serif text-[12px] font-bold text-parchment-text leading-snug">沉默的几何</h3>
+                    <p class="text-[8px] text-parchment-light mt-0.5 font-inter uppercase tracking-widest">ELENA VANCE</p>
+                </div>
+                <div class="text-[9px] text-parchment-muted text-center pt-1 border-t border-parchment-border/70">
+                    文集 · 译著
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-parchment-border">
+                    <div class="h-full bg-parchment-accent" style="width: 45%;"></div>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5">
+                <h4 class="text-xs font-semibold text-parchment-text truncate group-hover:text-parchment-accent transition-colors">沉默的几何</h4>
+                <p class="text-[10px] text-parchment-light mt-0.5 flex items-center justify-between">
+                    <span>第 8 章</span>
+                    <span class="text-parchment-accent font-medium">45%</span>
+                </p>
+            </div>
+        </article>
+        <!-- 书籍 3: 冬日手记 (Winter Journal) -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl book-spine-effect shadow-book bg-[#FBF9F4] border border-parchment-border p-2.5 text-parchment-text flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-parchment-bg-subtle font-medium font-inter text-parchment-muted">12%</span>
+                    <button class="text-parchment-light hover:text-parchment-text transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="my-auto py-1 text-center">
+                    <div class="flex justify-center text-parchment-accent mb-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24">
+                            <path d="M12 2a9 9 0 0 0-9 9c0 4.17 2.84 7.67 6.69 8.69L12 22l2.31-2.31C18.16 18.67 21 15.17 21 11a9 9 0 0 0-9-9z"></path>
+                            <path d="M12 6v8"></path>
+                        </svg>
+                    </div>
+                    <h3 class="font-serif text-[12px] font-bold text-parchment-text leading-snug">冬日手记</h3>
+                    <p class="text-[9px] text-parchment-light mt-0.5">马库斯 · 著</p>
+                </div>
+                <div class="text-[8px] text-parchment-light text-center font-inter tracking-wider">
+                    SOLITUDE &amp; QUIET
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-parchment-border">
+                    <div class="h-full bg-parchment-accent" style="width: 12%;"></div>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5">
+                <h4 class="text-xs font-semibold text-parchment-text truncate group-hover:text-parchment-accent transition-colors">冬日手记</h4>
+                <p class="text-[10px] text-parchment-light mt-0.5 flex items-center justify-between">
+                    <span>第 3 章</span>
+                    <span class="text-parchment-accent font-medium">12%</span>
+                </p>
+            </div>
+        </article>
+        <!-- 书籍 4: 沉思录 (Meditations) -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl book-spine-effect shadow-book bg-[#E7DED0] border border-parchment-border p-2.5 text-parchment-text flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-parchment-accent/15 text-parchment-accent font-semibold font-inter">88%</span>
+                    <button class="text-parchment-light hover:text-parchment-text transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="my-auto text-center px-1">
+                    <span class="text-[8px] text-parchment-light tracking-widest uppercase block mb-1 font-inter">PHILOSOPHY</span>
+                    <h3 class="font-serif text-[13px] font-bold text-parchment-text">沉思录</h3>
+                    <p class="text-[9px] text-parchment-muted mt-0.5">马可·奥勒留</p>
+                </div>
+                <div class="text-[8px] text-parchment-light text-center font-serif italic">
+                    "向内寻求安宁"
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-parchment-border">
+                    <div class="h-full bg-parchment-accent" style="width: 88%;"></div>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5">
+                <h4 class="text-xs font-semibold text-parchment-text truncate group-hover:text-parchment-accent transition-colors">沉思录</h4>
+                <p class="text-[10px] text-parchment-light mt-0.5 flex items-center justify-between">
+                    <span>卷十</span>
+                    <span class="text-parchment-accent font-medium">88%</span>
+                </p>
+            </div>
+        </article>
+        <!-- 书籍 5: 逻辑体系与认知 -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl book-spine-effect shadow-book bg-gradient-to-b from-[#F2EAE0] to-[#E5DDD2] border border-parchment-border p-2.5 text-parchment-text flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-parchment-border/80 font-medium font-inter text-parchment-muted">未读</span>
+                    <button class="text-parchment-light hover:text-parchment-text transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="my-auto text-center px-1">
+                    <h3 class="font-serif text-[12px] font-bold text-parchment-text leading-snug">逻辑体系与认知</h3>
+                    <p class="text-[9px] text-parchment-light mt-1 font-inter">S. Jenkins</p>
+                </div>
+                <div class="text-[8px] text-parchment-light text-center font-inter">
+                    TXT · 480KB
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-parchment-border">
+                    <div class="h-full bg-parchment-accent" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5">
+                <h4 class="text-xs font-semibold text-parchment-text truncate group-hover:text-parchment-accent transition-colors">逻辑体系与认知</h4>
+                <p class="text-[10px] text-parchment-light mt-0.5 flex items-center justify-between">
+                    <span>未开始</span>
+                    <span class="text-parchment-light">待读</span>
+                </p>
+            </div>
+        </article>
+        <!-- 书籍 6: 极简导入占位卡片 -->
+        <article class="flex flex-col group cursor-pointer">
+            <div class="aspect-[3/4.2] w-full rounded-xl border-2 border-dashed border-parchment-border hover:border-parchment-accent/70 bg-parchment-card hover:bg-parchment-card-hover p-3 text-parchment-muted flex flex-col items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-1">
+                <div class="w-9 h-9 rounded-full bg-parchment-bg flex items-center justify-center text-parchment-accent shadow-sm group-hover:scale-105 transition-transform border border-parchment-border">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                        <line x1="12" x2="12" y1="5" y2="19"></line>
+                        <line x1="5" x2="19" y1="12" y2="12"></line>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs font-semibold text-parchment-text">导入书籍</p>
+                    <p class="text-[9px] text-parchment-light mt-0.5 font-inter">EPUB / TXT / MD</p>
+                </div>
+            </div>
+            <div class="mt-2 px-0.5 text-center">
+                <span class="text-[10px] text-parchment-light">支持 WiFi 传书</span>
+            </div>
+        </article>
+    </section>
+    <!-- 底部清爽书籍存储提示 -->
+    <div class="pt-2 pb-1 text-center">
+        <div class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-parchment-border/45 text-[11px] text-parchment-muted">
+            <svg class="w-3.5 h-3.5 text-parchment-accent" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>
+                <polyline points="9 11 12 14 22 4"></polyline>
+            </svg>
+            <span>本地书库已加密同步 · 占用 42.6 MB</span>
+        </div>
+    </div>
+</main>
+<!-- 5. 底部主导航栏 (Bottom Navigation Bar - 无背景胶囊高亮，纯色彩状态表现) -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-parchment-bg/95 backdrop-blur-md border-t border-parchment-border/80 px-8 py-2 flex justify-around items-center">
+    <!-- Tab 1: 书库 (选中状态：图标和文字直接呈现高亮复古暖棕 #6C4A2D，无任何胶囊或背景色块) -->
+    <a class="flex flex-col items-center group py-0.5" href="#">
+        <div class="flex items-center justify-center text-parchment-accent">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewbox="0 0 24 24">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                <line x1="6" x2="18" y1="6" y2="6"></line>
+                <line x1="6" x2="18" y1="10" y2="10"></line>
+            </svg>
+        </div>
+        <span class="text-[11px] font-bold text-parchment-accent mt-1 tracking-tight">书库</span>
+    </a>
+    <!-- Tab 2: 正在读 / 书签 (未选中状态：柔和灰褐暖灰 #9E978E) -->
+    <a class="flex flex-col items-center group py-0.5 transition-colors" href="#">
+        <div class="flex items-center justify-center text-parchment-light group-hover:text-parchment-muted transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" viewbox="0 0 24 24">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+        </div>
+        <span class="text-[11px] font-medium text-parchment-light group-hover:text-parchment-muted mt-1 tracking-tight transition-colors">阅读</span>
+    </a>
+    <!-- Tab 3: 设置与偏好 (未选中状态：柔和灰褐暖灰 #9E978E) -->
+    <a class="flex flex-col items-center group py-0.5 transition-colors" href="#">
+        <div class="flex items-center justify-center text-parchment-light group-hover:text-parchment-muted transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" viewbox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </div>
+        <span class="text-[11px] font-medium text-parchment-light group-hover:text-parchment-muted mt-1 tracking-tight transition-colors">设置</span>
+    </a>
+</nav>
+<!-- iOS 底部指示条安全垫 -->
+<div class="fixed bottom-0 left-0 right-0 h-1.5 pointer-events-none z-50 flex justify-center pb-1">
+    <div class="w-32 h-1 bg-parchment-text/15 rounded-full"></div>
+</div>
+</body></html>
+

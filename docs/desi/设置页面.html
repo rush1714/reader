@@ -1,0 +1,545 @@
+<!-- 系统设置页 - 交互增强版 (Settings) -->
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>设置 - 深阅 (Deep Reader)</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;family=Literata:wght@600;700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        surface: {
+                            page: '#f6f4ee',
+                            card: '#ffffff',
+                            subtle: '#f9f8f5',
+                        },
+                        primary: {
+                            DEFAULT: '#153443',
+                            container: '#2d4b5a',
+                        },
+                        secondary: {
+                            DEFAULT: '#456366',
+                            container: '#c8e9ec',
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Noto Serif SC"', '"Source Serif 4"', 'serif'],
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'subtle': '0 2px 8px -2px rgba(21, 52, 67, 0.05), 0 1px 3px -1px rgba(21, 52, 67, 0.04)',
+                        'elevated': '0 8px 20px -4px rgba(21, 52, 67, 0.08), 0 2px 6px -1px rgba(21, 52, 67, 0.04)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--slider-thumb-bg, #153443);
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+            margin-top: -8px;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #d3dbd7;
+            border-radius: 9999px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        .slider-track-dotted {
+            position: relative;
+        }
+        .slider-dots {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            transform: translateY(-50%);
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            padding: 0 4px;
+        }
+        .slider-dot {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #9ab0a6;
+        }
+
+        body {
+            min-height: max(884px, 100dvh);
+            background-color: var(--page-bg, #f6f4ee);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Themes */
+        body.theme-parchment {
+            --page-bg: #f6f4ee;
+            --card-bg: #ffffff;
+            --text-main: #2c2925;
+            --primary-color: #5c4033;
+            --primary-bg: #5c4033;
+            --slider-thumb-bg: #5c4033;
+        }
+        body.theme-navy {
+            --page-bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --primary-color: #38bdf8;
+            --primary-bg: #0284c7;
+            --slider-thumb-bg: #38bdf8;
+        }
+        body.theme-dark {
+            --page-bg: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --primary-color: #90caf9;
+            --primary-bg: #1976d2;
+            --slider-thumb-bg: #90caf9;
+        }
+        body.theme-light {
+            --page-bg: #f9f9fc;
+            --card-bg: #ffffff;
+            --text-main: #1a1c1e;
+            --primary-color: #153443;
+            --primary-bg: #153443;
+            --slider-thumb-bg: #153443;
+        }
+        body.theme-morandi {
+            --page-bg: #e8ece9;
+            --card-bg: #ffffff;
+            --text-main: #202724;
+            --primary-color: #345c55;
+            --primary-bg: #345c55;
+            --slider-thumb-bg: #345c55;
+        }
+    </style>
+</head>
+<body class="theme-parchment text-[#2c2925] font-sans antialiased flex flex-col items-center">
+<!-- iOS Status Bar & Top App Bar -->
+<header class="w-full bg-[var(--page-bg)]/90 backdrop-blur-md sticky top-0 z-40 max-w-[540px] px-5 pt-3 pb-3 border-b border-black/5 transition-colors">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <h1 class="font-serif text-[26px] font-bold tracking-tight flex items-center gap-2">
+                设置
+                <span class="text-xs font-sans font-medium px-2 py-0.5 rounded-full bg-black/5 tracking-normal">Settings</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-1 opacity-80">
+            <button aria-label="搜索设置" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition">
+                <span class="material-symbols-outlined text-[21px]">search</span>
+            </button>
+            <button aria-label="更多操作" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition">
+                <span class="material-symbols-outlined text-[21px]">more_horiz</span>
+            </button>
+        </div>
+    </div>
+</header>
+<!-- Main Settings Content Container -->
+<main class="flex-grow w-full max-w-[540px] px-4 py-4 flex flex-col gap-4 mb-24">
+    <!-- 1. 阅读器设置卡片 (Reader Settings) -->
+    <section class="bg-[var(--card-bg)] rounded-2xl shadow-subtle p-5 border border-black/5 flex flex-col gap-5 transition-colors">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+<span class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">menu_book</span>
+</span>
+                <div>
+                    <h2 class="font-semibold text-[15px] leading-tight">阅读器</h2>
+                    <p class="text-xs opacity-60 mt-0.5">正文版式与排版微调</p>
+                </div>
+            </div>
+            <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-black/5 opacity-80">排版已优化</span>
+        </div>
+        <!-- 字号调节 -->
+        <div class="flex flex-col gap-2 pt-1">
+            <div class="flex justify-between items-center text-xs font-medium opacity-80">
+                <span class="font-semibold text-sm">正文字号</span>
+                <span class="font-mono text-xs px-2 py-0.5 bg-black/5 rounded-md font-semibold" id="font-size-val">25 pt</span>
+            </div>
+            <div class="slider-track-dotted pt-1 pb-2">
+                <div class="slider-dots">
+                    <span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span>
+                    <span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span>
+                </div>
+                <input class="relative z-10" id="font-size-slider" max="36" min="14" step="2" type="range" value="25"/>
+            </div>
+            <div class="flex justify-between items-center text-[11px] opacity-60 px-0.5">
+                <span class="font-serif font-bold">A- 14pt</span>
+                <span>标准 22pt</span>
+                <span class="font-serif font-bold text-sm">A+ 36pt</span>
+            </div>
+        </div>
+        <div class="h-px bg-black/5"></div>
+        <!-- 行距与页边距 -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-black/[0.02] p-3 rounded-xl border border-black/5 flex flex-col gap-1.5">
+                <span class="text-[12px] font-medium opacity-60">行间距</span>
+                <div class="flex items-center justify-between gap-1 mt-1 option-group-line-height">
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--card-bg)] opacity-70 hover:opacity-100 font-medium shadow-sm border border-black/5 transition" data-val="compact">紧凑</button>
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--primary-bg)] text-white font-medium shadow-sm transition" data-val="comfortable">舒适</button>
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--card-bg)] opacity-70 hover:opacity-100 font-medium shadow-sm border border-black/5 transition" data-val="loose">宽松</button>
+                </div>
+            </div>
+            <div class="bg-black/[0.02] p-3 rounded-xl border border-black/5 flex flex-col gap-1.5">
+                <span class="text-[12px] font-medium opacity-60">段落边距</span>
+                <div class="flex items-center justify-between gap-1 mt-1 option-group-margin">
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--card-bg)] opacity-70 hover:opacity-100 font-medium shadow-sm border border-black/5 transition" data-val="narrow">狭窄</button>
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--primary-bg)] text-white font-medium shadow-sm transition" data-val="standard">标准</button>
+                    <button class="flex-1 py-1 text-xs rounded-lg bg-[var(--card-bg)] opacity-70 hover:opacity-100 font-medium shadow-sm border border-black/5 transition" data-val="wide">开阔</button>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- 2. 主题模式卡片 (Theme Mode) -->
+    <section class="bg-[var(--card-bg)] rounded-2xl shadow-subtle p-5 border border-black/5 flex flex-col gap-4 transition-colors">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+<span class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">palette</span>
+</span>
+                <div>
+                    <h2 class="font-semibold text-[15px] leading-tight">主题模式</h2>
+                    <p class="text-xs opacity-60 mt-0.5">护眼色彩与显示配色</p>
+                </div>
+            </div>
+        </div>
+        <!-- 主题选择列表 -->
+        <div class="flex flex-col gap-2" id="theme-selector-list">
+            <label class="theme-option flex items-center justify-between p-3 rounded-xl border border-black/5 bg-black/[0.02] cursor-pointer transition" data-theme="system">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-current"></div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium">跟随系统</span>
+                        <span class="text-[11px] opacity-60">自动切换日间与夜间</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-[18px] opacity-60">hdr_auto</span>
+            </label>
+            <label class="theme-option flex items-center justify-between p-3 rounded-xl border border-black/5 cursor-pointer transition" data-theme="parchment">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium">羊皮暖黄 (Parchment)</span>
+                        <span class="text-[11px] opacity-60">温润经典纸书质感</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-[18px] opacity-60">auto_stories</span>
+            </label>
+            <label class="theme-option flex items-center justify-between p-3 rounded-xl border border-black/5 cursor-pointer transition" data-theme="navy">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium">雅致深蓝 (Navy Slate)</span>
+                        <span class="text-[11px] opacity-60">深邃沉浸夜读风格</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-[18px] opacity-60">nights_stay</span>
+            </label>
+            <label class="theme-option flex items-center justify-between p-3 rounded-xl border border-black/5 cursor-pointer transition" data-theme="light">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium">明亮模式</span>
+                        <span class="text-[11px] opacity-60">通透纯净白底高清晰度</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-[18px] opacity-60">light_mode</span>
+            </label>
+            <label class="theme-option flex items-center justify-between p-3 rounded-xl border border-black/5 cursor-pointer transition" data-theme="morandi">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium">暮色青黛 (Morandi Slate)</span>
+                        <span class="text-[11px] opacity-60">低饱和青色系，舒缓蓝光</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-[18px] opacity-60">dark_mode</span>
+            </label>
+        </div>
+    </section>
+    <!-- 3. 语音与 TTS 朗读设置 (Audio & Voice) -->
+    <section class="bg-[var(--card-bg)] rounded-2xl shadow-subtle p-5 border border-black/5 flex flex-col gap-4 transition-colors">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+<span class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">volume_up</span>
+</span>
+                <div>
+                    <h2 class="font-semibold text-[15px] leading-tight">语音与朗读</h2>
+                    <p class="text-xs opacity-60 mt-0.5">原生与本地端侧自然语音体验</p>
+                </div>
+            </div>
+            <span class="flex items-center gap-1 text-[11px] font-medium bg-black/5 px-2.5 py-1 rounded-full opacity-80">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                离线可用
+            </span>
+        </div>
+        <div class="flex flex-col gap-3 pt-1">
+            <!-- 语音引擎 -->
+            <div class="relative">
+                <label class="absolute -top-2 left-3 bg-[var(--card-bg)] px-1.5 text-[11px] font-medium opacity-60">语音引擎</label>
+                <select class="w-full bg-[var(--card-bg)] border border-black/10 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-1 transition" id="tts-engine">
+                    <option selected="">手机自带语音 (系统 Native TTS)</option>
+                    <option>端侧离线 AI 拟真引擎 (预留内测)</option>
+                </select>
+            </div>
+            <!-- 语言选择 -->
+            <div class="relative">
+                <label class="absolute -top-2 left-3 bg-[var(--card-bg)] px-1.5 text-[11px] font-medium opacity-60">语言</label>
+                <select class="w-full bg-[var(--card-bg)] border border-black/10 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-1 transition" id="tts-lang">
+                    <option selected="">中文（普通话，中国大陆）</option>
+                    <option>中文（粤语，中国香港）</option>
+                    <option>英语（English - US / UK）</option>
+                    <option>日语（日本語）</option>
+                </select>
+            </div>
+            <!-- 声音音色选择配试听按钮 -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1">
+                    <label class="absolute -top-2 left-3 bg-[var(--card-bg)] px-1.5 text-[11px] font-medium opacity-60">声音</label>
+                    <select class="w-full bg-[var(--card-bg)] border border-black/10 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-1 transition" id="tts-voice">
+                        <option selected="">Lili (Premium) · 自然女声</option>
+                        <option>Tingting · 温和标准女声</option>
+                        <option>Arthur · 沉稳英伦男声</option>
+                        <option>Yu-shu · 柔和叙事男声</option>
+                    </select>
+                </div>
+                <button aria-label="试听声音" class="h-[43px] w-[43px] flex-shrink-0 flex items-center justify-center rounded-xl bg-black/5 hover:bg-black/10 active:scale-95 transition" id="tts-preview-btn">
+                    <span class="material-symbols-outlined text-[22px]">volume_up</span>
+                </button>
+            </div>
+        </div>
+        <div class="h-px bg-black/5 my-1"></div>
+        <!-- 滑块控制群：语速、音调、音量 -->
+        <div class="flex flex-col gap-4">
+            <!-- 语速滑块 -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="opacity-80 font-medium">语速</span>
+                    <span class="font-mono text-xs opacity-60 font-semibold" id="speed-val">1.00x</span>
+                </div>
+                <div class="slider-track-dotted">
+                    <div class="slider-dots"><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span></div>
+                    <input class="relative z-10" id="speed-slider" max="2.0" min="0.5" step="0.05" type="range" value="1.00"/>
+                </div>
+                <div class="flex justify-between text-[11px] opacity-60">
+                    <span>0.5x 慢速</span><span>1.0x 正常</span><span>2.0x 极速</span>
+                </div>
+            </div>
+            <!-- 音调滑块 -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="opacity-80 font-medium">音调</span>
+                    <span class="font-mono text-xs opacity-60 font-semibold" id="pitch-val">1.00</span>
+                </div>
+                <div class="slider-track-dotted">
+                    <div class="slider-dots"><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span></div>
+                    <input class="relative z-10" id="pitch-slider" max="1.5" min="0.5" step="0.05" type="range" value="1.00"/>
+                </div>
+                <div class="flex justify-between text-[11px] opacity-60">
+                    <span>低沉</span><span>适中</span><span>高昂</span>
+                </div>
+            </div>
+            <!-- 音量滑块 -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="opacity-80 font-medium">音量</span>
+                    <span class="font-mono text-xs opacity-60 font-semibold" id="volume-val">1.00</span>
+                </div>
+                <div class="slider-track-dotted">
+                    <div class="slider-dots"><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span><span class="slider-dot"></span></div>
+                    <input class="relative z-10" id="volume-slider" max="1.0" min="0" step="0.05" type="range" value="0.95"/>
+                </div>
+                <div class="flex justify-between text-[11px] opacity-60">
+                    <span>静音</span><span>50%</span><span>100%</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- 4. 存储与关于信息微卡片 -->
+    <section class="bg-[var(--card-bg)] rounded-2xl shadow-subtle p-4 border border-black/5 flex items-center justify-between transition-colors">
+        <div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">storage</span>
+</span>
+            <div class="flex flex-col">
+                <span class="text-sm font-medium">离线书籍缓存</span>
+                <span class="text-[11px] opacity-60" id="cache-desc">已占用 48.2 MB · 点击可清理</span>
+            </div>
+        </div>
+        <button class="px-3 py-1.5 text-xs font-medium bg-black/5 rounded-lg hover:bg-black/10 active:scale-95 transition flex items-center gap-1" id="clear-cache-btn">
+            <span id="clear-btn-text">清理</span>
+        </button>
+    </section>
+    <!-- 版本与版权文案 -->
+    <div class="text-center py-2">
+        <p class="font-serif text-xs opacity-80">深阅 · Deep Reader v2.5.0</p>
+        <p class="text-[10px] opacity-60 mt-0.5">全功能交互与沉浸多主题架构</p>
+    </div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="bg-[var(--page-bg)]/95 backdrop-blur-md border-t border-black/5 fixed bottom-0 left-0 w-full z-50 py-1.5 px-8 transition-colors">
+    <div class="max-w-[540px] mx-auto flex justify-around items-center">
+        <a class="flex flex-col items-center justify-center py-1 px-4 opacity-60 hover:opacity-100 transition active:scale-95" href="#">
+            <span class="material-symbols-outlined text-[24px]">chrome_reader_mode</span>
+            <span class="text-[11px] font-medium mt-0.5 tracking-tight">书库</span>
+        </a>
+        <a class="flex flex-col items-center justify-center py-1 px-4 transition active:scale-95" href="#">
+            <div class="px-4 py-1 rounded-full bg-black/10 flex items-center justify-center">
+                <span class="material-symbols-outlined material-symbols-fill text-[22px]">settings</span>
+            </div>
+            <span class="text-[11px] font-semibold mt-0.5 tracking-tight">设置</span>
+        </a>
+    </div>
+</nav>
+<!-- Toast Popup Notification -->
+<div class="fixed top-6 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2.5 rounded-xl text-xs font-medium shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2" id="toast">
+    <span class="material-symbols-outlined text-emerald-400 text-[18px]" id="toast-icon">check_circle</span>
+    <span id="toast-text">操作成功</span>
+</div>
+<script>
+    // 1. Sliders interaction
+    const setupSlider = (sliderId, valId, suffix = '') => {
+        const slider = document.getElementById(sliderId);
+        const valSpan = document.getElementById(valId);
+        if(slider && valSpan) {
+            slider.addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                if(suffix === 'x' || suffix === '') {
+                    valSpan.textContent = val.toFixed(2) + suffix;
+                } else if(suffix === ' pt') {
+                    valSpan.textContent = Math.round(val) + suffix;
+                }
+            });
+        }
+    };
+    setupSlider('font-size-slider', 'font-size-val', ' pt');
+    setupSlider('speed-slider', 'speed-val', 'x');
+    setupSlider('pitch-slider', 'pitch-val', '');
+    setupSlider('volume-slider', 'volume-val', '');
+
+    // 2. Line height & Paragraph margin option buttons toggle
+    const setupButtonGroup = (selector) => {
+        const group = document.querySelector(selector);
+        if(!group) return;
+        group.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                group.querySelectorAll('button').forEach(b => {
+                    b.className = "flex-1 py-1 text-xs rounded-lg bg-[var(--card-bg)] opacity-70 hover:opacity-100 font-medium shadow-sm border border-black/5 transition";
+                });
+                btn.className = "flex-1 py-1 text-xs rounded-lg bg-[var(--primary-bg)] text-white font-medium shadow-sm transition";
+            });
+        });
+    };
+    setupButtonGroup('.option-group-line-height');
+    setupButtonGroup('.option-group-margin');
+
+    // 3. Theme switcher
+    const themeOptions = document.querySelectorAll('.theme-option');
+    themeOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            const theme = opt.getAttribute('data-theme');
+            document.body.className = `theme-${theme} text-[var(--text-main)] font-sans antialiased flex flex-col items-center`;
+
+            themeOptions.forEach(o => {
+                o.classList.remove('bg-black/[0.02]');
+                const indicator = o.querySelector('.w-5');
+                if(indicator) {
+                    indicator.innerHTML = '';
+                    indicator.classList.remove('border-current');
+                    indicator.classList.add('border-black/20');
+                }
+            });
+            opt.classList.add('bg-black/[0.02]');
+            const ind = opt.querySelector('.w-5');
+            if(ind) {
+                ind.classList.remove('border-black/20');
+                ind.classList.add('border-current');
+                ind.innerHTML = '<div class="w-2.5 h-2.5 rounded-full bg-current"></div>';
+            }
+            showToast(`已切换至 ${opt.querySelector('.font-medium').textContent}`);
+        });
+    });
+
+    // 4. Cache Clear Interaction with Animation & Toast
+    const clearBtn = document.getElementById('clear-cache-btn');
+    const cacheDesc = document.getElementById('cache-desc');
+    const clearBtnText = document.getElementById('clear-btn-text');
+
+    clearBtn.addEventListener('click', () => {
+        if(clearBtn.disabled) return;
+        clearBtn.disabled = true;
+        clearBtnText.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> 清理中';
+
+        setTimeout(() => {
+            cacheDesc.textContent = '已占用 0.0 MB · 缓存已清空';
+            clearBtnText.textContent = '已清理';
+            clearBtn.classList.remove('hover:bg-black/10');
+            clearBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            showToast('离线缓存清理成功！释放空间 48.2MB');
+        }, 1200);
+    });
+
+    // 5. TTS Preview button interaction
+    const ttsPreviewBtn = document.getElementById('tts-preview-btn');
+    ttsPreviewBtn.addEventListener('click', () => {
+        ttsPreviewBtn.classList.add('animate-pulse');
+        showToast('正在试听所选声音...');
+        setTimeout(() => {
+            ttsPreviewBtn.classList.remove('animate-pulse');
+        }, 2000);
+    });
+
+    // Toast helper
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toast-text');
+        toastText.textContent = msg;
+        toast.classList.remove('opacity-0', 'pointer-events-none');
+        toast.classList.add('opacity-100');
+
+        setTimeout(() => {
+            toast.classList.remove('opacity-100');
+            toast.classList.add('opacity-0', 'pointer-events-none');
+        }, 2500);
+    }
+</script>
+</body></html>
