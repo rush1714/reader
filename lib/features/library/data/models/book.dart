@@ -20,6 +20,8 @@ class Book {
     required this.importedAt,
     required this.chapterCount,
     required this.currentChapterIndex,
+    this.readingProgress = 0,
+    this.lastReadAt,
   });
 
   /// 本地唯一 ID。
@@ -46,11 +48,19 @@ class Book {
   /// 最近阅读章节索引。
   final int currentChapterIndex;
 
+  /// 整本书阅读进度，范围 0.0 - 1.0。
+  final double readingProgress;
+
+  /// 最近阅读时间。
+  final DateTime? lastReadAt;
+
   Book copyWith({
     String? title,
     String? author,
     int? chapterCount,
     int? currentChapterIndex,
+    double? readingProgress,
+    Object? lastReadAt = _notProvided,
   }) {
     return Book(
       id: id,
@@ -61,6 +71,8 @@ class Book {
       importedAt: importedAt,
       chapterCount: chapterCount ?? this.chapterCount,
       currentChapterIndex: currentChapterIndex ?? this.currentChapterIndex,
+      readingProgress: readingProgress ?? this.readingProgress,
+      lastReadAt: identical(lastReadAt, _notProvided) ? this.lastReadAt : lastReadAt as DateTime?,
     );
   }
 
@@ -87,7 +99,14 @@ class Book {
       importedAt: DateTime.parse(map['importedAt']! as String),
       chapterCount: map['chapterCount']! as int,
       currentChapterIndex: map['currentChapterIndex']! as int,
+      readingProgress: (map['readingProgress'] as num?)?.toDouble() ?? 0,
+      lastReadAt: _dateTimeFromMap(map['lastReadAt']),
     );
+  }
+
+  static DateTime? _dateTimeFromMap(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   static BookFormat _formatFromName(String name) {
@@ -97,6 +116,8 @@ class Book {
     return BookFormat.text;
   }
 }
+
+const _notProvided = Object();
 
 /// 图书格式展示文案。
 extension BookFormatLabel on BookFormat {

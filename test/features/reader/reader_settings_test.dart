@@ -7,15 +7,15 @@ void main() {
     final settings = ReaderSettings.defaults().copyWith(
       fontSize: 22,
       themeMode: ThemeMode.dark,
-      speechEngine: SpeechEngineType.onDeviceAi,
-      voiceId: 'ai-anchor-reserved-zh',
+      speechEngine: SpeechEngineType.system,
+      voiceId: 'system-zh',
     );
 
     final restored = ReaderSettings.fromMap(settings.toMap());
 
     expect(restored.fontSize, 22);
     expect(restored.themeMode, ThemeMode.dark);
-    expect(restored.speechEngine, SpeechEngineType.onDeviceAi);
-    expect(restored.voiceId, 'ai-anchor-reserved-zh');
+    expect(restored.speechEngine, SpeechEngineType.system);
+    expect(restored.voiceId, 'system-zh');
   });
 }

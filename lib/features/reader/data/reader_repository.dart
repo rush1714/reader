@@ -78,7 +78,7 @@ class ReaderRepository {
     required Book book,
     required int chapterIndex,
   }) {
-    final progress = book.chapterCount <= 1 ? 1.0 : chapterIndex / (book.chapterCount - 1);
+    final progress = book.chapterCount <= 0 ? 0.0 : (chapterIndex + 1) / book.chapterCount;
     return _libraryRepository.updateCurrentChapter(
       bookId: book.id,
       chapterIndex: chapterIndex,

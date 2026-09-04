@@ -123,10 +123,7 @@ const _notProvided = Object();
 
 /// 可选语音引擎类型。
 enum SpeechEngineType {
-  /// 端侧 AI TTS 预留引擎。
-  onDeviceAi,
-
-  /// 系统 TTS 兜底引擎。
+  /// 系统 TTS 引擎。
   system,
 }
 
@@ -134,8 +131,7 @@ enum SpeechEngineType {
 extension SpeechEngineTypeLabel on SpeechEngineType {
   String get label {
     return switch (this) {
-      SpeechEngineType.onDeviceAi => '本地 AI 语音（预留）',
-      SpeechEngineType.system => '手机自带语音',
+      SpeechEngineType.system => '手机自带语音（系统 TTS）',
     };
   }
 }

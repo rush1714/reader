@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reader_app/features/library/data/models/book.dart';
+import 'package:reader_app/features/library/presentation/library_view_model.dart';
 import 'package:reader_app/features/reader/data/models/book_chapter.dart';
 import 'package:reader_app/features/reader/data/reader_repository.dart';
 
@@ -29,8 +30,8 @@ class ReaderState {
 
   /// 整本书进度展示值。
   double get progress {
-    if (book.chapterCount <= 1) return 1;
-    return chapter.chapterIndex / (book.chapterCount - 1);
+    if (book.chapterCount <= 0) return 0;
+    return (chapter.chapterIndex + 1) / book.chapterCount;
   }
 }
 
@@ -58,7 +59,10 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
 
     final progress = await repository.getProgress(bookId);
     final chapterIndex = progress?.chapterIndex ?? book.currentChapterIndex;
-    return _loadChapter(chapterIndex);
+    final loaded = await _loadChapter(chapterIndex);
+    await _saveProgress(loaded);
+    ref.invalidate(libraryViewModelProvider);
+    return loaded;
   }
 
   /// 跳转上一章。
@@ -84,12 +88,17 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final next = await _loadChapter(chapterIndex);
-      await ref.read(readerRepositoryProvider).saveProgress(
-            book: next.book,
-            chapterIndex: next.chapter.chapterIndex,
-          );
+      await _saveProgress(next);
+      ref.invalidate(libraryViewModelProvider);
       return next;
     });
+  }
+
+  Future<void> _saveProgress(ReaderState next) {
+    return ref.read(readerRepositoryProvider).saveProgress(
+          book: next.book,
+          chapterIndex: next.chapter.chapterIndex,
+        );
   }
 
   Future<ReaderState> _loadChapter(int chapterIndex) async {

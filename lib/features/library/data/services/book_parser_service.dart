@@ -201,12 +201,20 @@ class BookParserService {
   }
 
   String _normalizeText(String value) {
-    return value
+    final normalized = value
         .replaceAll('\r\n', '\n')
         .replaceAll('\r', '\n')
         .replaceAll(RegExp(r'[ \t]+'), ' ')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-        .trim();
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isEmpty || !_isNoiseLine(line))
+        .join('\n');
+
+    return normalized.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  }
+
+  bool _isNoiseLine(String value) {
+    return RegExp(r'^[\s\p{P}\p{S}]+$', unicode: true).hasMatch(value);
   }
 
   String _titleFromPath(String filePath) {

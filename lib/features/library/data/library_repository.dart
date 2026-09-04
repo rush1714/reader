@@ -40,18 +40,33 @@ class LibraryRepository {
   /// 查询书库图书列表。
   Future<List<Book>> listBooks() async {
     final db = await _database.database;
-    final rows = await db.query('books', orderBy: 'importedAt DESC');
+    final rows = await db.rawQuery('''
+SELECT
+  books.*,
+  reading_progress.progress AS readingProgress,
+  reading_progress.updatedAt AS lastReadAt
+FROM books
+LEFT JOIN reading_progress ON reading_progress.bookId = books.id
+ORDER BY COALESCE(reading_progress.updatedAt, books.importedAt) DESC
+''');
     return rows.map(Book.fromMap).toList();
   }
 
   /// 根据 ID 查询图书。
   Future<Book?> getBook(String bookId) async {
     final db = await _database.database;
-    final rows = await db.query(
-      'books',
-      where: 'id = ?',
-      whereArgs: [bookId],
-      limit: 1,
+    final rows = await db.rawQuery(
+      '''
+SELECT
+  books.*,
+  reading_progress.progress AS readingProgress,
+  reading_progress.updatedAt AS lastReadAt
+FROM books
+LEFT JOIN reading_progress ON reading_progress.bookId = books.id
+WHERE books.id = ?
+LIMIT 1
+''',
+      [bookId],
     );
     if (rows.isEmpty) return null;
     return Book.fromMap(rows.first);

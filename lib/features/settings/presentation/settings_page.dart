@@ -11,7 +11,7 @@ import 'package:reader_app/features/speech/presentation/speech_voices_view_model
 
 /// 设置页面。
 ///
-/// 第一版聚合阅读器、主题和语音设置。所有设置都保存在本机 SQLite。
+/// 聚合阅读器、主题和语音设置。所有设置都保存在本机 SQLite。
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -20,130 +20,423 @@ class SettingsPage extends ConsumerWidget {
     final settingsState = ref.watch(readerSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: settingsState.when(
-        loading: () => const AppLoading(),
-        error: (error, stackTrace) => AppErrorView(error: error),
-        data: (settings) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _SectionCard(
-              title: '阅读器',
-              children: [
-                ListTile(
-                  title: const Text('正文字号'),
-                  subtitle: Slider(
+      body: SafeArea(
+        bottom: false,
+        child: settingsState.when(
+          loading: () => const AppLoading(),
+          error: (error, stackTrace) => AppErrorView(error: error),
+          data: (settings) => ListView(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 104),
+            children: [
+              const _SettingsHeader(),
+              const SizedBox(height: 16),
+              _SettingsCard(
+                icon: Icons.menu_book_rounded,
+                title: '阅读器',
+                subtitle: '正文版式与排版微调',
+                trailing: const _SoftBadge(label: '排版已优化'),
+                children: [
+                  _ControlSlider(
+                    title: '正文字号',
+                    valueText: '${settings.fontSize.round()} pt',
                     value: settings.fontSize,
                     min: 14,
                     max: 30,
                     divisions: 16,
-                    label: settings.fontSize.round().toString(),
+                    startLabel: 'A- 14pt',
+                    middleLabel: '标准 22pt',
+                    endLabel: 'A+ 30pt',
                     onChanged: (value) => ref
                         .read(readerSettingsProvider.notifier)
                         .updateFontSize(value),
                   ),
-                  trailing: Text(settings.fontSize.round().toString()),
-                ),
-              ],
-            ),
-            _SectionCard(
-              title: '主题',
-              children: [
-                RadioGroup<ThemeMode>(
-                  groupValue: settings.themeMode,
-                  onChanged: (value) => _updateTheme(ref, value),
-                  child: const Column(
-                    children: [
-                      RadioListTile<ThemeMode>(
-                        value: ThemeMode.system,
-                        title: Text('跟随系统'),
-                      ),
-                      RadioListTile<ThemeMode>(
-                        value: ThemeMode.light,
-                        title: Text('明亮模式'),
-                      ),
-                      RadioListTile<ThemeMode>(
-                        value: ThemeMode.dark,
-                        title: Text('深色模式'),
-                      ),
-                    ],
+                ],
+              ),
+              const SizedBox(height: 14),
+              _SettingsCard(
+                icon: Icons.palette_rounded,
+                title: '主题模式',
+                subtitle: '护眼色彩与显示配色',
+                children: [
+                  _ThemeOption(
+                    selected: settings.themeMode == ThemeMode.system,
+                    title: '跟随系统',
+                    subtitle: '自动切换羊皮暖黄与雅致深蓝',
+                    icon: Icons.hdr_auto_rounded,
+                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.system),
                   ),
-                ),
-              ],
-            ),
-            _SectionCard(
-              title: '语音',
-              children: [
-                DropdownButtonFormField<SpeechEngineType>(
-                  initialValue: settings.speechEngine,
-                  decoration: const InputDecoration(
-                    labelText: '语音引擎',
-                    border: OutlineInputBorder(),
+                  _ThemeOption(
+                    selected: settings.themeMode == ThemeMode.light,
+                    title: '羊皮暖黄 (Parchment)',
+                    subtitle: '温润经典纸书质感',
+                    icon: Icons.auto_stories_rounded,
+                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.light),
                   ),
-                  items: SpeechEngineType.values.map((engine) {
-                    return DropdownMenuItem(
-                      value: engine,
-                      child: Text(engine.label),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      ref.read(readerSettingsProvider.notifier).updateSpeechEngine(value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                _VoiceSelector(settings: settings),
-                const SizedBox(height: 12),
-                _SliderTile(
-                  title: '语速',
-                  value: settings.speechRate,
-                  min: 0.2,
-                  max: 1,
-                  divisions: 8,
-                  onChanged: (value) => ref
-                      .read(readerSettingsProvider.notifier)
-                      .updateSpeechRate(value),
-                ),
-                _SliderTile(
-                  title: '音调',
-                  value: settings.pitch,
-                  min: 0.5,
-                  max: 2,
-                  divisions: 15,
-                  onChanged: (value) => ref
-                      .read(readerSettingsProvider.notifier)
-                      .updatePitch(value),
-                ),
-                _SliderTile(
-                  title: '音量',
-                  value: settings.volume,
-                  min: 0,
-                  max: 1,
-                  divisions: 10,
-                  onChanged: (value) => ref
-                      .read(readerSettingsProvider.notifier)
-                      .updateVolume(value),
-                ),
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('语音说明'),
-                  subtitle: Text(
-                    '当前默认调用 iOS / Android 本机系统语音模块；声音质量取决于设备已安装的系统语音。本地 AI TTS 架构仍保留，不上传书籍内容，也不调用大型语言模型。',
+                  _ThemeOption(
+                    selected: settings.themeMode == ThemeMode.dark,
+                    title: '雅致深蓝 (Navy Slate)',
+                    subtitle: '深邃沉浸夜读风格',
+                    icon: Icons.nights_stay_rounded,
+                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.dark),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 14),
+              _SettingsCard(
+                icon: Icons.volume_up_rounded,
+                title: '语音与朗读',
+                subtitle: '调用手机系统语音，支持已安装的高质量声音',
+                trailing: const _SoftBadge(label: '系统语音', active: true),
+                children: [
+                  DropdownButtonFormField<SpeechEngineType>(
+                    initialValue: settings.speechEngine,
+                    decoration: const InputDecoration(labelText: '语音引擎'),
+                    items: SpeechEngineType.values.map((engine) {
+                      return DropdownMenuItem(
+                        value: engine,
+                        child: Text(engine.label),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(readerSettingsProvider.notifier).updateSpeechEngine(value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _VoiceSelector(settings: settings),
+                  const SizedBox(height: 14),
+                  _ControlSlider(
+                    title: '语速',
+                    valueText: '${_speechRateLabel(settings.speechRate)}x',
+                    value: settings.speechRate,
+                    min: 0.2,
+                    max: 1,
+                    divisions: 8,
+                    startLabel: '慢速',
+                    middleLabel: '自然',
+                    endLabel: '快速',
+                    onChanged: (value) => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updateSpeechRate(value),
+                  ),
+                  const SizedBox(height: 12),
+                  _ControlSlider(
+                    title: '音调',
+                    valueText: settings.pitch.toStringAsFixed(2),
+                    value: settings.pitch,
+                    min: 0.5,
+                    max: 2,
+                    divisions: 15,
+                    startLabel: '低沉',
+                    middleLabel: '适中',
+                    endLabel: '高昂',
+                    onChanged: (value) => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updatePitch(value),
+                  ),
+                  const SizedBox(height: 12),
+                  _ControlSlider(
+                    title: '音量',
+                    valueText: '${(settings.volume * 100).round()}%',
+                    value: settings.volume,
+                    min: 0,
+                    max: 1,
+                    divisions: 10,
+                    startLabel: '静音',
+                    middleLabel: '50%',
+                    endLabel: '100%',
+                    onChanged: (value) => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updateVolume(value),
+                  ),
+                  const SizedBox(height: 10),
+                  _InfoPanel(
+                    icon: Icons.info_outline_rounded,
+                    title: '为什么没有 Siri？',
+                    message:
+                        'iOS 不会把“嘿 Siri/个人助理声音”完整开放给第三方 App。系统 TTS 只能列出 AVSpeechSynthesizer 允许使用的朗读声音；如果想要更多高质量中文声音，请在系统“设置 → 辅助功能 → 朗读内容 → 声音 → 中文”里下载增强/高级声音，然后回到这里选择。',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const _SettingsCard(
+                icon: Icons.storage_rounded,
+                title: '离线书籍缓存',
+                subtitle: '导入的书籍与模型均保存在本机',
+                children: [
+                  _InfoPanel(
+                    icon: Icons.verified_user_outlined,
+                    title: '本地优先',
+                    message: '书籍、阅读进度、主题和语音设置都存储在设备本地。',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '深阅 · Deep Reader',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _updateTheme(WidgetRef ref, ThemeMode? value) {
-    if (value != null) {
-      ref.read(readerSettingsProvider.notifier).updateThemeMode(value);
-    }
+  static String _speechRateLabel(double value) {
+    final speed = 0.75 + (value.clamp(0.2, 1).toDouble() - 0.2) / 0.8 * 0.7;
+    return speed.toStringAsFixed(2);
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '设置',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.1,
+                    ),
+              ),
+              const SizedBox(width: 9),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Settings',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: '更多',
+          onPressed: () {},
+          icon: const Icon(Icons.more_horiz_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.children,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, size: 20, color: colorScheme.primary),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
+            ),
+            const SizedBox(height: 17),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftBadge extends StatelessWidget {
+  const _SoftBadge({required this.label, this.active = false});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (active) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.green.shade500,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: selected ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? colorScheme.primary.withValues(alpha: 0.48) : colorScheme.outline.withValues(alpha: 0.32),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: selected ? colorScheme.primary : colorScheme.outline, width: 2),
+                ),
+                child: selected
+                    ? Center(
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(icon, size: 21, color: colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -158,7 +451,11 @@ class _VoiceSelector extends ConsumerWidget {
 
     return voices.when(
       loading: () => const LinearProgressIndicator(),
-      error: (error, stackTrace) => Text(error.toString()),
+      error: (error, stackTrace) => _InfoPanel(
+        icon: Icons.error_outline_rounded,
+        title: '声音列表加载失败',
+        message: error.toString(),
+      ),
       data: (voices) {
         final languages = _languagesFrom(voices);
         final selectedLocale = languages.contains(settings.speechLocale)
@@ -175,10 +472,7 @@ class _VoiceSelector extends ConsumerWidget {
             DropdownButtonFormField<String>(
               initialValue: selectedLocale,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: '语言',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: '语言'),
               items: languages.map((locale) {
                 final voice = voices.firstWhere((item) => item.locale == locale);
                 return DropdownMenuItem(
@@ -198,10 +492,7 @@ class _VoiceSelector extends ConsumerWidget {
                   child: DropdownButtonFormField<String>(
                     initialValue: selectedVoice,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: '声音',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: '声音'),
                     selectedItemBuilder: (context) {
                       return filteredVoices.map((voice) {
                         return Align(
@@ -230,16 +521,19 @@ class _VoiceSelector extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: '试听声音',
-                  onPressed: selectedVoice == null
-                      ? null
-                      : () async {
-                          await ref.read(readerSettingsProvider.notifier).updateVoiceId(selectedVoice);
-                          await ref.read(speechViewModelProvider.notifier).previewCurrentVoice();
-                        },
-                  icon: const Icon(Icons.volume_up_outlined),
+                const SizedBox(width: 9),
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton.filledTonal(
+                    tooltip: '试听声音',
+                    onPressed: selectedVoice == null
+                        ? null
+                        : () async {
+                            await ref.read(readerSettingsProvider.notifier).updateVoiceId(selectedVoice);
+                            await ref.read(speechViewModelProvider.notifier).previewCurrentVoice();
+                          },
+                    icon: const Icon(Icons.volume_up_outlined),
+                  ),
                 ),
               ],
             ),
@@ -259,70 +553,138 @@ class _VoiceSelector extends ConsumerWidget {
   }
 }
 
-class _SliderTile extends StatelessWidget {
-  const _SliderTile({
+class _ControlSlider extends StatelessWidget {
+  const _ControlSlider({
     required this.title,
+    required this.valueText,
     required this.value,
     required this.min,
     required this.max,
     required this.divisions,
+    required this.startLabel,
+    required this.middleLabel,
+    required this.endLabel,
     required this.onChanged,
   });
 
   final String title;
+  final String valueText;
   final double value;
   final double min;
   final double max;
   final int divisions;
+  final String startLabel;
+  final String middleLabel;
+  final String endLabel;
   final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(title),
-      subtitle: Slider(
-        value: value,
-        min: min,
-        max: max,
-        divisions: divisions,
-        label: value.toStringAsFixed(2),
-        onChanged: onChanged,
-      ),
-      trailing: Text(value.toStringAsFixed(2)),
-    );
-  }
-}
+    final colorScheme = Theme.of(context).colorScheme;
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.children,
-  });
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                valueText,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
                     ),
               ),
             ),
-            const SizedBox(height: 8),
-            ...children,
           ],
         ),
+        const SizedBox(height: 4),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: valueText,
+          onChanged: onChanged,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(startLabel, style: _sliderLabelStyle(context)),
+              Text(middleLabel, style: _sliderLabelStyle(context)),
+              Text(endLabel, style: _sliderLabelStyle(context)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  TextStyle? _sliderLabelStyle(BuildContext context) {
+    return Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.76),
+        );
+  }
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.45,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
