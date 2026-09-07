@@ -18,10 +18,7 @@ final readerRepositoryProvider = Provider<ReaderRepository>((ref) {
 ///
 /// 负责按章节加载正文和保存阅读进度。阅读页不直接查询 SQLite。
 class ReaderRepository {
-  const ReaderRepository(
-    this._database,
-    this._libraryRepository,
-  );
+  const ReaderRepository(this._database, this._libraryRepository);
 
   final AppDatabase _database;
   final LibraryRepository _libraryRepository;
@@ -73,16 +70,23 @@ class ReaderRepository {
     return ReadingProgress.fromMap(rows.first);
   }
 
-  /// 保存当前章节进度。
+  /// 保存当前章节及其章节内阅读位置。
   Future<void> saveProgress({
     required Book book,
     required int chapterIndex,
+    required double scrollOffset,
+    required double chapterProgress,
   }) {
-    final progress = book.chapterCount <= 0 ? 0.0 : (chapterIndex + 1) / book.chapterCount;
+    final safeChapterProgress = chapterProgress.clamp(0.0, 1.0).toDouble();
+    final progress = book.chapterCount <= 0
+        ? 0.0
+        : (chapterIndex + safeChapterProgress) / book.chapterCount;
     return _libraryRepository.updateCurrentChapter(
       bookId: book.id,
       chapterIndex: chapterIndex,
-      progress: progress.clamp(0, 1),
+      progress: progress.clamp(0.0, 1.0).toDouble(),
+      scrollOffset: scrollOffset.clamp(0.0, double.infinity).toDouble(),
+      chapterProgress: safeChapterProgress,
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,20 +28,47 @@ class ReaderPage extends ConsumerStatefulWidget {
   ConsumerState<ReaderPage> createState() => _ReaderPageState();
 }
 
-class _ReaderPageState extends ConsumerState<ReaderPage> {
+class _ReaderPageState extends ConsumerState<ReaderPage>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
+  static const double _nextChapterOverscrollTrigger = 72;
+  static const int _maxScrollRestoreAttempts = 8;
+
   final List<GlobalKey> _sentenceKeys = [];
   String? _sentenceKeySeed;
+  String? _restoredChapterId;
+  Timer? _progressSaveDebounce;
   int _autoReadSession = 0;
+  int _scrollRestoreGeneration = 0;
+  double _bottomOverscroll = 0;
   bool _chromeVisible = false;
   bool _isChangingChapter = false;
+  bool _isRestoringScrollOffset = false;
   Offset? _tapDownPosition;
-  _ChapterSnapshot? _previousChapterSnapshot;
-  int? _previousSnapshotTargetChapterIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_flushReadingPosition());
+    }
+  }
 
   @override
   void dispose() {
     _autoReadSession += 1;
+    WidgetsBinding.instance.removeObserver(this);
+    _progressSaveDebounce?.cancel();
+    unawaited(_persistCurrentReadingPosition(force: true));
+    _cancelScrollRestore();
     _scrollController.dispose();
     super.dispose();
   }
@@ -51,15 +80,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final speechState = ref.watch(speechViewModelProvider).value;
     final fontSize = settings?.fontSize ?? 18;
     final speakingSentenceIndex = speechState?.currentSentenceIndex;
-    final playbackState = speechState?.playbackState ?? SpeechPlaybackState.idle;
+    final playbackState =
+        speechState?.playbackState ?? SpeechPlaybackState.idle;
     final isSpeaking = playbackState == SpeechPlaybackState.speaking;
     final isActive = isSpeaking || playbackState == SpeechPlaybackState.paused;
 
     ref.listen(speechViewModelProvider, (previous, next) {
       if (next.hasError && next.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error.toString())),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(next.error.toString())));
         return;
       }
 
@@ -77,17 +106,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         data: (data) {
           final sentences = _sentencesFrom(data.chapter.content);
           _ensureSentenceKeys(data.chapter.id, sentences.length);
-          if (_previousSnapshotTargetChapterIndex != null &&
-              _previousSnapshotTargetChapterIndex != data.chapter.chapterIndex) {
-            _previousChapterSnapshot = null;
-            _previousSnapshotTargetChapterIndex = null;
-          }
-          final previousSnapshot = _previousSnapshotTargetChapterIndex == data.chapter.chapterIndex
-              ? _previousChapterSnapshot
-              : null;
+          _restoreScrollOffsetIfNeeded(data);
 
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          final backgroundColor = isDark ? AppColors.readingPaperDark : AppColors.readingPaperLight;
+          final backgroundColor = isDark
+              ? AppColors.readingPaperDark
+              : AppColors.readingPaperLight;
 
           return ColoredBox(
             color: backgroundColor,
@@ -96,12 +120,16 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                 GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   dragStartBehavior: DragStartBehavior.down,
-                  onTapDown: (details) => _tapDownPosition = details.globalPosition,
-                  onTapUp: (details) => _handleReaderTap(details.globalPosition),
+                  onTapDown: (details) =>
+                      _tapDownPosition = details.globalPosition,
+                  onTapUp: (details) =>
+                      _handleReaderTap(details.globalPosition),
                   onTapCancel: () => _tapDownPosition = null,
-                  onHorizontalDragEnd: (details) => _handleHorizontalDragEnd(details),
+                  onHorizontalDragEnd: (details) =>
+                      _handleHorizontalDragEnd(details),
                   child: NotificationListener<ScrollNotification>(
-                    onNotification: (notification) => _handleScrollNotification(notification, data),
+                    onNotification: (notification) =>
+                        _handleScrollNotification(notification, data),
                     child: ListView.builder(
                       controller: _scrollController,
                       padding: EdgeInsets.fromLTRB(
@@ -110,13 +138,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                         24,
                         120 + MediaQuery.paddingOf(context).bottom,
                       ),
-                      itemCount: sentences.length + 2 + (previousSnapshot == null ? 0 : 1),
+                      itemCount: sentences.length + 2,
                       itemBuilder: (context, index) {
-                        if (previousSnapshot != null && index == 0) {
-                          return _PreviousChapterBridge(snapshot: previousSnapshot);
-                        }
-
-                        final contentIndex = index - (previousSnapshot == null ? 0 : 1);
+                        final contentIndex = index;
                         if (contentIndex == 0) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 24),
@@ -125,7 +149,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                               children: [
                                 Text(
                                   data.chapter.title,
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: -0.4,
                                         height: 1.18,
@@ -134,8 +161,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                                 const SizedBox(height: 10),
                                 Text(
                                   '${data.book.title} · 第 ${data.chapter.chapterIndex + 1} / ${data.book.chapterCount} 章',
-                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
                                         letterSpacing: 0.2,
                                       ),
                                 ),
@@ -150,15 +180,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             child: Text(
                               '第 ${data.chapter.chapterIndex + 1} / ${data.book.chapterCount} 章',
                               textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                           );
                         }
 
                         final sentenceIndex = contentIndex - 1;
-                        final isCurrentSentence = speakingSentenceIndex == sentenceIndex;
+                        final isCurrentSentence =
+                            speakingSentenceIndex == sentenceIndex;
                         return _SentenceText(
                           key: _sentenceKeys[sentenceIndex],
                           text: sentences[sentenceIndex],
@@ -173,23 +207,28 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                   visible: _chromeVisible,
                   title: data.book.title,
                   subtitle: data.chapter.title,
-                  onBack: () => context.go(RoutePaths.library),
+                  onBack: () => _goLibrary(data),
                   onChapter: () => _showChapterSheet(data),
                   onDecreaseFont: settings == null
                       ? null
                       : () => ref
-                          .read(readerSettingsProvider.notifier)
-                          .updateFontSize((fontSize - 1).clamp(14, 30).toDouble()),
+                            .read(readerSettingsProvider.notifier)
+                            .updateFontSize(
+                              (fontSize - 1).clamp(14, 30).toDouble(),
+                            ),
                   onIncreaseFont: settings == null
                       ? null
                       : () => ref
-                          .read(readerSettingsProvider.notifier)
-                          .updateFontSize((fontSize + 1).clamp(14, 30).toDouble()),
+                            .read(readerSettingsProvider.notifier)
+                            .updateFontSize(
+                              (fontSize + 1).clamp(14, 30).toDouble(),
+                            ),
                 ),
                 _ReaderBottomDrawer(
                   visible: _chromeVisible,
                   progress: data.progress.clamp(0, 1).toDouble(),
-                  chapterLabel: '第 ${data.chapter.chapterIndex + 1} / ${data.book.chapterCount} 章',
+                  chapterLabel:
+                      '第 ${data.chapter.chapterIndex + 1} / ${data.book.chapterCount} 章',
                   isSpeaking: isSpeaking,
                   isActive: isActive,
                   canGoPrevious: data.canGoPrevious,
@@ -198,11 +237,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                   sentenceCount: sentences.length,
                   currentSentence: speakingSentenceIndex == null
                       ? null
-                      : sentences[speakingSentenceIndex.clamp(0, sentences.length - 1)],
+                      : sentences[speakingSentenceIndex.clamp(
+                          0,
+                          sentences.length - 1,
+                        )],
                   onPrevious: _goPrevious,
                   onNext: _goNext,
-                  onPlayPause: isSpeaking ? _pauseSpeech : () => _startAutoRead(data),
+                  onPlayPause: isSpeaking
+                      ? _pauseSpeech
+                      : () => _startAutoRead(data),
                   onStop: isActive ? _stopSpeech : null,
+                  onSettings: () => unawaited(_goSettings(data)),
                 ),
               ],
             ),
@@ -225,51 +270,84 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   void _handleHorizontalDragEnd(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     if (velocity > 520) {
-      context.go(RoutePaths.library);
+      unawaited(_goLibrary());
     }
   }
 
-  bool _handleScrollNotification(ScrollNotification notification, ReaderState data) {
-    if (notification.depth != 0 || !data.canGoNext || _isChangingChapter) return false;
-    if (notification is! OverscrollNotification && notification is! ScrollEndNotification) {
+  Future<void> _goLibrary([ReaderState? data]) async {
+    await _flushReadingPosition(expectedChapterId: data?.chapter.id);
+    if (!mounted) return;
+    context.go(RoutePaths.library);
+  }
+
+  Future<void> _goSettings(ReaderState data) async {
+    await _flushReadingPosition(expectedChapterId: data.chapter.id);
+    if (!mounted) return;
+    context.go(RoutePaths.settings);
+  }
+
+  bool _handleScrollNotification(
+    ScrollNotification notification,
+    ReaderState data,
+  ) {
+    if (notification.depth != 0) return false;
+
+    if (notification is ScrollUpdateNotification) {
+      _schedulePersistReadingPosition(data);
+      if (notification.dragDetails == null) {
+        _bottomOverscroll = 0;
+      }
+    } else if (notification is ScrollEndNotification) {
+      _bottomOverscroll = 0;
+      _schedulePersistReadingPosition(data, delay: Duration.zero);
+    }
+
+    if (!data.canGoNext || _isChangingChapter || _isRestoringScrollOffset) {
+      return false;
+    }
+
+    if (notification is! OverscrollNotification ||
+        notification.dragDetails == null ||
+        notification.overscroll <= 0) {
       return false;
     }
 
     final metrics = notification.metrics;
-    final atBottom = metrics.pixels >= metrics.maxScrollExtent - 8;
-    final pullingUp = notification is OverscrollNotification && notification.overscroll > 0;
-    if (!atBottom && !pullingUp) return false;
+    final atBottom = metrics.pixels >= metrics.maxScrollExtent - 2;
+    if (!atBottom) {
+      _bottomOverscroll = 0;
+      return false;
+    }
 
-    _autoNextChapter(data);
+    _bottomOverscroll += notification.overscroll;
+    if (_bottomOverscroll >= _nextChapterOverscrollTrigger) {
+      _bottomOverscroll = 0;
+      unawaited(_autoNextChapter(data));
+    }
     return false;
   }
 
   Future<void> _autoNextChapter(ReaderState currentState) async {
     if (_isChangingChapter) return;
     _isChangingChapter = true;
+    _cancelScrollRestore();
     try {
-      final previousExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
-      _previousChapterSnapshot = _ChapterSnapshot(
-        title: currentState.chapter.title,
-        chapterLabel: '第 ${currentState.chapter.chapterIndex + 1} / ${currentState.book.chapterCount} 章',
-      );
-      _previousSnapshotTargetChapterIndex = currentState.chapter.chapterIndex + 1;
-
+      await _flushReadingPosition(expectedChapterId: currentState.chapter.id);
       await _stopSpeech();
-      await ref.read(readerViewModelProvider(widget.bookId).notifier).nextChapter();
+      await ref
+          .read(readerViewModelProvider(widget.bookId).notifier)
+          .nextChapter();
       if (!mounted) return;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
-        final target = previousExtent.clamp(0, _scrollController.position.maxScrollExtent).toDouble();
-        _scrollController.jumpTo(target);
-      });
-    } finally {
+      _jumpToTopAfterBuild();
+    } catch (_) {
       _isChangingChapter = false;
+      rethrow;
     }
   }
 
   Future<void> _startAutoRead(ReaderState initialState) async {
+    await _flushReadingPosition(expectedChapterId: initialState.chapter.id);
+    if (!mounted) return;
     setState(() {
       _chromeVisible = true;
     });
@@ -279,15 +357,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
 
     while (mounted && sessionId == _autoReadSession) {
       final sentences = _sentencesFrom(currentState.chapter.content);
-      final completed = await ref.read(speechViewModelProvider.notifier).speakSentences(
-            sentences,
-            startIndex: startIndex,
-          );
-      if (!completed || !mounted || sessionId != _autoReadSession || !currentState.canGoNext) {
+      final completed = await ref
+          .read(speechViewModelProvider.notifier)
+          .speakSentences(sentences, startIndex: startIndex);
+      if (!completed ||
+          !mounted ||
+          sessionId != _autoReadSession ||
+          !currentState.canGoNext) {
         break;
       }
 
-      await ref.read(readerViewModelProvider(widget.bookId).notifier).nextChapter();
+      await ref
+          .read(readerViewModelProvider(widget.bookId).notifier)
+          .nextChapter();
       if (!mounted || sessionId != _autoReadSession) break;
 
       await Future<void>.delayed(const Duration(milliseconds: 120));
@@ -299,13 +381,39 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   Future<void> _goPrevious() async {
-    await _stopSpeech();
-    await ref.read(readerViewModelProvider(widget.bookId).notifier).previousChapter();
+    final current = ref.read(readerViewModelProvider(widget.bookId)).value;
+    _isChangingChapter = true;
+    _cancelScrollRestore();
+    try {
+      await _flushReadingPosition(expectedChapterId: current?.chapter.id);
+      await _stopSpeech();
+      await ref
+          .read(readerViewModelProvider(widget.bookId).notifier)
+          .previousChapter();
+      if (!mounted) return;
+      _jumpToTopAfterBuild();
+    } catch (_) {
+      _isChangingChapter = false;
+      rethrow;
+    }
   }
 
   Future<void> _goNext() async {
-    await _stopSpeech();
-    await ref.read(readerViewModelProvider(widget.bookId).notifier).nextChapter();
+    final current = ref.read(readerViewModelProvider(widget.bookId)).value;
+    _isChangingChapter = true;
+    _cancelScrollRestore();
+    try {
+      await _flushReadingPosition(expectedChapterId: current?.chapter.id);
+      await _stopSpeech();
+      await ref
+          .read(readerViewModelProvider(widget.bookId).notifier)
+          .nextChapter();
+      if (!mounted) return;
+      _jumpToTopAfterBuild();
+    } catch (_) {
+      _isChangingChapter = false;
+      rethrow;
+    }
   }
 
   Future<void> _pauseSpeech() async {
@@ -319,12 +427,18 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   Future<void> _showChapterSheet(ReaderState data) async {
+    await _flushReadingPosition(expectedChapterId: data.chapter.id);
+    if (!mounted) return;
     const itemExtent = 64.0;
     final selectedIndex = data.chapters.isEmpty
         ? 0
         : data.chapter.chapterIndex.clamp(0, data.chapters.length - 1).toInt();
-    final initialOffset = (selectedIndex * itemExtent - 160).clamp(0, double.infinity).toDouble();
-    final scrollController = ScrollController(initialScrollOffset: initialOffset);
+    final initialOffset = (selectedIndex * itemExtent - 160)
+        .clamp(0, double.infinity)
+        .toDouble();
+    final scrollController = ScrollController(
+      initialScrollOffset: initialOffset,
+    );
 
     try {
       await showModalBottomSheet<void>(
@@ -339,7 +453,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               itemCount: data.chapters.length,
               itemBuilder: (context, index) {
                 final chapter = data.chapters[index];
-                final selected = chapter.chapterIndex == data.chapter.chapterIndex;
+                final selected =
+                    chapter.chapterIndex == data.chapter.chapterIndex;
                 return ListTile(
                   selected: selected,
                   selectedColor: Theme.of(context).colorScheme.primary,
@@ -352,10 +467,22 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                   trailing: selected ? const Icon(Icons.check_rounded) : null,
                   onTap: () async {
                     Navigator.of(context).pop();
-                    await _stopSpeech();
-                    await ref
-                        .read(readerViewModelProvider(widget.bookId).notifier)
-                        .goToChapter(chapter.chapterIndex);
+                    _isChangingChapter = true;
+                    _cancelScrollRestore();
+                    try {
+                      await _flushReadingPosition(
+                        expectedChapterId: data.chapter.id,
+                      );
+                      await _stopSpeech();
+                      await ref
+                          .read(readerViewModelProvider(widget.bookId).notifier)
+                          .goToChapter(chapter.chapterIndex);
+                      if (!mounted) return;
+                      _jumpToTopAfterBuild();
+                    } catch (_) {
+                      _isChangingChapter = false;
+                      rethrow;
+                    }
                   },
                 );
               },
@@ -366,6 +493,203 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     } finally {
       scrollController.dispose();
     }
+  }
+
+  void _restoreScrollOffsetIfNeeded(ReaderState data) {
+    if (_restoredChapterId == data.chapter.id) return;
+    final chapterId = data.chapter.id;
+    _restoredChapterId = chapterId;
+    final savedOffset = data.savedScrollOffset;
+    final savedChapterProgress = data.savedChapterProgress
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final generation = ++_scrollRestoreGeneration;
+    _isRestoringScrollOffset = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreScrollOffset(
+        chapterId: chapterId,
+        savedOffset: savedOffset,
+        savedChapterProgress: savedChapterProgress,
+        generation: generation,
+        attempt: 0,
+      );
+    });
+  }
+
+  void _restoreScrollOffset({
+    required String chapterId,
+    required double savedOffset,
+    required double savedChapterProgress,
+    required int generation,
+    required int attempt,
+    double? previousMaxExtent,
+  }) {
+    if (!mounted || generation != _scrollRestoreGeneration) {
+      _finishScrollRestore(generation);
+      return;
+    }
+
+    if (!_scrollController.hasClients) {
+      _retryScrollRestore(
+        chapterId: chapterId,
+        savedOffset: savedOffset,
+        savedChapterProgress: savedChapterProgress,
+        generation: generation,
+        attempt: attempt,
+        previousMaxExtent: previousMaxExtent,
+      );
+      return;
+    }
+
+    final current = ref.read(readerViewModelProvider(widget.bookId)).value;
+    if (current?.chapter.id != chapterId) {
+      _finishScrollRestore(generation);
+      return;
+    }
+
+    final position = _scrollController.position;
+    final maxExtent = position.maxScrollExtent;
+    final target = _restoreTargetOffset(
+      maxExtent: maxExtent,
+      savedOffset: savedOffset,
+      savedChapterProgress: savedChapterProgress,
+    );
+    if ((position.pixels - target).abs() > 0.5) {
+      position.jumpTo(target);
+    }
+
+    final isExtentStable =
+        previousMaxExtent != null &&
+        (previousMaxExtent - maxExtent).abs() < 0.5;
+    final noSavedPosition = savedOffset <= 0 && savedChapterProgress <= 0;
+    if (noSavedPosition ||
+        isExtentStable ||
+        attempt >= _maxScrollRestoreAttempts - 1) {
+      _finishScrollRestore(generation);
+      return;
+    }
+
+    _retryScrollRestore(
+      chapterId: chapterId,
+      savedOffset: savedOffset,
+      savedChapterProgress: savedChapterProgress,
+      generation: generation,
+      attempt: attempt,
+      previousMaxExtent: maxExtent,
+    );
+  }
+
+  void _retryScrollRestore({
+    required String chapterId,
+    required double savedOffset,
+    required double savedChapterProgress,
+    required int generation,
+    required int attempt,
+    double? previousMaxExtent,
+  }) {
+    if (attempt >= _maxScrollRestoreAttempts - 1) {
+      _finishScrollRestore(generation);
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreScrollOffset(
+        chapterId: chapterId,
+        savedOffset: savedOffset,
+        savedChapterProgress: savedChapterProgress,
+        generation: generation,
+        attempt: attempt + 1,
+        previousMaxExtent: previousMaxExtent,
+      );
+    });
+  }
+
+  double _restoreTargetOffset({
+    required double maxExtent,
+    required double savedOffset,
+    required double savedChapterProgress,
+  }) {
+    final target = savedChapterProgress > 0
+        ? maxExtent * savedChapterProgress
+        : savedOffset;
+    return target.clamp(0.0, maxExtent).toDouble();
+  }
+
+  void _finishScrollRestore(int generation) {
+    if (generation == _scrollRestoreGeneration) {
+      _isRestoringScrollOffset = false;
+    }
+  }
+
+  void _cancelScrollRestore() {
+    _scrollRestoreGeneration += 1;
+    _isRestoringScrollOffset = false;
+  }
+
+  void _jumpToTopAfterBuild() {
+    final generation = _scrollRestoreGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _scrollRestoreGeneration) {
+        _isChangingChapter = false;
+        return;
+      }
+      if (!_scrollController.hasClients) {
+        _isChangingChapter = false;
+        return;
+      }
+      _scrollController.jumpTo(0);
+      _isChangingChapter = false;
+    });
+  }
+
+  void _schedulePersistReadingPosition(
+    ReaderState data, {
+    Duration delay = const Duration(milliseconds: 450),
+  }) {
+    if (_isRestoringScrollOffset || _isChangingChapter) return;
+    _progressSaveDebounce?.cancel();
+    _progressSaveDebounce = Timer(delay, () {
+      unawaited(
+        _persistCurrentReadingPosition(expectedChapterId: data.chapter.id),
+      );
+    });
+  }
+
+  Future<void> _flushReadingPosition({String? expectedChapterId}) {
+    _progressSaveDebounce?.cancel();
+    _progressSaveDebounce = null;
+    return _persistCurrentReadingPosition(
+      expectedChapterId: expectedChapterId,
+      force: true,
+    );
+  }
+
+  Future<void> _persistCurrentReadingPosition({
+    String? expectedChapterId,
+    bool force = false,
+  }) async {
+    if (!mounted || !_scrollController.hasClients) return;
+    if (!force && (_isRestoringScrollOffset || _isChangingChapter)) return;
+    final current = ref.read(readerViewModelProvider(widget.bookId)).value;
+    if (current == null) return;
+    if (expectedChapterId != null && current.chapter.id != expectedChapterId) {
+      return;
+    }
+
+    final position = _scrollController.position;
+    final maxExtent = position.maxScrollExtent;
+    final offset = position.pixels.clamp(0.0, maxExtent).toDouble();
+    final chapterProgress = maxExtent <= 0
+        ? 0.0
+        : (offset / maxExtent).clamp(0.0, 1.0).toDouble();
+
+    await ref
+        .read(readerViewModelProvider(widget.bookId).notifier)
+        .saveReadingPosition(
+          scrollOffset: offset,
+          chapterProgress: chapterProgress,
+        );
   }
 
   void _ensureSentenceKeys(String chapterId, int length) {
@@ -379,7 +703,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   int _firstVisibleSentenceIndex() {
     final screenHeight = MediaQuery.sizeOf(context).height;
     final topBoundary = MediaQuery.paddingOf(context).top + 24;
-    final bottomBoundary = screenHeight - MediaQuery.paddingOf(context).bottom - 36;
+    final bottomBoundary =
+        screenHeight - MediaQuery.paddingOf(context).bottom - 36;
 
     for (var index = 0; index < _sentenceKeys.length; index += 1) {
       final itemContext = _sentenceKeys[index].currentContext;
@@ -413,7 +738,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   List<String> _sentencesFrom(String content) {
-    final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+    final normalized = content
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .trim();
     if (normalized.isEmpty) return const ['当前章节没有可显示的文字内容。'];
 
     final sentences = <String>[];
@@ -422,7 +750,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       final char = normalized[i];
       buffer.write(char);
       if (_isSentenceEnd(char)) {
-        while (i + 1 < normalized.length && _isClosingQuote(normalized[i + 1])) {
+        while (i + 1 < normalized.length &&
+            _isClosingQuote(normalized[i + 1])) {
           i += 1;
           buffer.write(normalized[i]);
         }
@@ -468,64 +797,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     }
 
     for (var start = 0; start < sentence.length; start += maxLength) {
-      final end = start + maxLength > sentence.length ? sentence.length : start + maxLength;
+      final end = start + maxLength > sentence.length
+          ? sentence.length
+          : start + maxLength;
       yield sentence.substring(start, end);
     }
-  }
-}
-
-class _ChapterSnapshot {
-  const _ChapterSnapshot({
-    required this.title,
-    required this.chapterLabel,
-  });
-
-  final String title;
-  final String chapterLabel;
-}
-
-class _PreviousChapterBridge extends StatelessWidget {
-  const _PreviousChapterBridge({required this.snapshot});
-
-  final _ChapterSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Column(
-        children: [
-          Text(
-            snapshot.chapterLabel,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(child: Divider(color: colorScheme.outline.withValues(alpha: 0.45))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  '继续下一章',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.6,
-                      ),
-                ),
-              ),
-              Expanded(child: Divider(color: colorScheme.outline.withValues(alpha: 0.45))),
-            ],
-          ),
-          const SizedBox(height: 18),
-        ],
-      ),
-    );
   }
 }
 
@@ -563,9 +839,12 @@ class _ReaderTopDrawer extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
+              color: Theme.of(context).scaffoldBackgroundColor
+                  .withValues(alpha: 0.95),
               border: Border(
-                bottom: BorderSide(color: colorScheme.outline.withValues(alpha: 0.55)),
+                bottom: BorderSide(
+                  color: colorScheme.outline.withValues(alpha: 0.55),
+                ),
               ),
               boxShadow: [
                 BoxShadow(
@@ -596,7 +875,8 @@ class _ReaderTopDrawer extends StatelessWidget {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   height: 1.15,
                                 ),
@@ -606,9 +886,8 @@ class _ReaderTopDrawer extends StatelessWidget {
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -655,6 +934,7 @@ class _ReaderBottomDrawer extends StatelessWidget {
     required this.onNext,
     required this.onPlayPause,
     required this.onStop,
+    required this.onSettings,
   });
 
   final bool visible;
@@ -671,6 +951,7 @@ class _ReaderBottomDrawer extends StatelessWidget {
   final VoidCallback? onNext;
   final VoidCallback onPlayPause;
   final VoidCallback? onStop;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -689,9 +970,12 @@ class _ReaderBottomDrawer extends StatelessWidget {
             duration: const Duration(milliseconds: 180),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.97),
+                color: Theme.of(context).scaffoldBackgroundColor
+                    .withValues(alpha: 0.97),
                 border: Border(
-                  top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.55)),
+                  top: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.55),
+                  ),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -715,7 +999,9 @@ class _ReaderBottomDrawer extends StatelessWidget {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: isSpeaking ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                              color: isSpeaking
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -723,8 +1009,11 @@ class _ReaderBottomDrawer extends StatelessWidget {
                           Expanded(
                             child: Text(
                               isSpeaking ? 'TTS 语音朗读中' : '点击播放开始朗读',
-                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: isSpeaking ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: isSpeaking
+                                        ? colorScheme.primary
+                                        : colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.4,
                                   ),
@@ -732,7 +1021,8 @@ class _ReaderBottomDrawer extends StatelessWidget {
                           ),
                           Text(
                             chapterLabel,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -742,17 +1032,26 @@ class _ReaderBottomDrawer extends StatelessWidget {
                       if (currentSentence != null) ...[
                         const SizedBox(height: 11),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            color: colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: colorScheme.outline.withValues(alpha: 0.35)),
+                            border: Border.all(
+                              color: colorScheme.outline.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
                           ),
                           child: Text(
                             '“$currentSentence”',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -772,16 +1071,16 @@ class _ReaderBottomDrawer extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            sentenceIndex == null ? '段落未开始' : '段落 ${sentenceIndex! + 1} / $sentenceCount',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            sentenceIndex == null
+                                ? '段落未开始'
+                                : '段落 ${sentenceIndex! + 1} / $sentenceCount',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                           Text(
                             '${(progress * 100).round()}%',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -797,7 +1096,11 @@ class _ReaderBottomDrawer extends StatelessWidget {
                           IconButton(
                             tooltip: '停止朗读',
                             onPressed: onStop,
-                            icon: Icon(isActive ? Icons.stop_circle_rounded : Icons.stop_circle_outlined),
+                            icon: Icon(
+                              isActive
+                                  ? Icons.stop_circle_rounded
+                                  : Icons.stop_circle_outlined,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           SizedBox.square(
@@ -805,13 +1108,18 @@ class _ReaderBottomDrawer extends StatelessWidget {
                             child: IconButton.filled(
                               tooltip: isSpeaking ? '暂停朗读' : '开始朗读',
                               onPressed: onPlayPause,
-                              icon: Icon(isSpeaking ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 30),
+                              icon: Icon(
+                                isSpeaking
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 30,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
                             tooltip: '语音设置',
-                            onPressed: () => context.go(RoutePaths.settings),
+                            onPressed: onSettings,
                             icon: const Icon(Icons.tune_rounded),
                           ),
                           const Spacer(),
@@ -858,12 +1166,12 @@ class _SentenceText extends StatelessWidget {
         vertical: isSpeaking ? 7 : 0,
       ),
       decoration: BoxDecoration(
-        color: isSpeaking ? colorScheme.primary.withValues(alpha: 0.14) : Colors.transparent,
+        color: isSpeaking
+            ? colorScheme.primary.withValues(alpha: 0.14)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: isSpeaking
-            ? Border(
-                bottom: BorderSide(color: colorScheme.primary, width: 2),
-              )
+            ? Border(bottom: BorderSide(color: colorScheme.primary, width: 2))
             : null,
       ),
       child: Text(
@@ -873,7 +1181,9 @@ class _SentenceText extends StatelessWidget {
           fontSize: fontSize,
           height: 1.92,
           letterSpacing: 0.35,
-          color: isSpeaking ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.91),
+          color: isSpeaking
+              ? colorScheme.onSurface
+              : colorScheme.onSurface.withValues(alpha: 0.91),
           fontWeight: isSpeaking ? FontWeight.w700 : FontWeight.w400,
         ),
       ),

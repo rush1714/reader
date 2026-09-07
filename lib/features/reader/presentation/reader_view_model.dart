@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_app/features/library/data/models/book.dart';
 import 'package:reader_app/features/library/presentation/library_view_model.dart';
 import 'package:reader_app/features/reader/data/models/book_chapter.dart';
+import 'package:reader_app/features/reader/data/models/reading_progress.dart';
 import 'package:reader_app/features/reader/data/reader_repository.dart';
 
 /// 阅读页状态。
@@ -11,6 +12,7 @@ class ReaderState {
     required this.book,
     required this.chapter,
     required this.chapters,
+    this.readingProgress,
   });
 
   /// 当前图书。
@@ -22,23 +24,35 @@ class ReaderState {
   /// 当前图书章节目录。
   final List<ChapterSummary> chapters;
 
+  /// 打开阅读器时从本地加载的阅读位置。
+  final ReadingProgress? readingProgress;
+
   /// 是否还有上一章。
   bool get canGoPrevious => chapter.chapterIndex > 0;
 
   /// 是否还有下一章。
   bool get canGoNext => chapter.chapterIndex < book.chapterCount - 1;
 
+  /// 当前章节需要恢复的滚动像素位置。
+  double get savedScrollOffset => readingProgress?.scrollOffset ?? 0;
+
+  /// 当前章节内需要恢复的相对阅读进度。
+  double get savedChapterProgress => readingProgress?.chapterProgress ?? 0;
+
   /// 整本书进度展示值。
   double get progress {
+    final savedProgress = readingProgress;
+    if (savedProgress != null) return savedProgress.progress;
     if (book.chapterCount <= 0) return 0;
     return (chapter.chapterIndex + 1) / book.chapterCount;
   }
 }
 
 /// 阅读页 ViewModel Provider。
-final readerViewModelProvider = AsyncNotifierProvider.family<ReaderViewModel, ReaderState, String>(
-  ReaderViewModel.new,
-);
+final readerViewModelProvider =
+    AsyncNotifierProvider.family<ReaderViewModel, ReaderState, String>(
+      ReaderViewModel.new,
+    );
 
 /// 阅读页 ViewModel。
 ///
@@ -57,12 +71,10 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
       throw StateError('没有找到这本书，可能已被删除。');
     }
 
-    final progress = await repository.getProgress(bookId);
-    final chapterIndex = progress?.chapterIndex ?? book.currentChapterIndex;
-    final loaded = await _loadChapter(chapterIndex);
-    await _saveProgress(loaded);
-    ref.invalidate(libraryViewModelProvider);
-    return loaded;
+    final readingProgress = await repository.getProgress(bookId);
+    final chapterIndex =
+        readingProgress?.chapterIndex ?? book.currentChapterIndex;
+    return _loadChapter(chapterIndex, readingProgress: readingProgress);
   }
 
   /// 跳转上一章。
@@ -84,24 +96,50 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
     await _setChapter(chapterIndex);
   }
 
+  /// 保存当前章节的滚动位置。
+  Future<void> saveReadingPosition({
+    required double scrollOffset,
+    required double chapterProgress,
+  }) async {
+    final current = state.value;
+    if (current == null) return;
+
+    await _saveProgress(
+      current,
+      scrollOffset: scrollOffset,
+      chapterProgress: chapterProgress,
+    );
+  }
+
   Future<void> _setChapter(int chapterIndex) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final next = await _loadChapter(chapterIndex);
-      await _saveProgress(next);
+      await _saveProgress(next, scrollOffset: 0, chapterProgress: 0);
       ref.invalidate(libraryViewModelProvider);
       return next;
     });
   }
 
-  Future<void> _saveProgress(ReaderState next) {
-    return ref.read(readerRepositoryProvider).saveProgress(
+  Future<void> _saveProgress(
+    ReaderState next, {
+    required double scrollOffset,
+    required double chapterProgress,
+  }) {
+    return ref
+        .read(readerRepositoryProvider)
+        .saveProgress(
           book: next.book,
           chapterIndex: next.chapter.chapterIndex,
+          scrollOffset: scrollOffset,
+          chapterProgress: chapterProgress,
         );
   }
 
-  Future<ReaderState> _loadChapter(int chapterIndex) async {
+  Future<ReaderState> _loadChapter(
+    int chapterIndex, {
+    ReadingProgress? readingProgress,
+  }) async {
     final repository = ref.read(readerRepositoryProvider);
     final book = await repository.getBook(bookId);
     if (book == null) {
@@ -113,7 +151,9 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
       throw StateError('这本书没有可阅读章节。');
     }
 
-    final safeChapterIndex = chapterIndex.clamp(0, book.chapterCount - 1);
+    final safeChapterIndex = chapterIndex
+        .clamp(0, book.chapterCount - 1)
+        .toInt();
     final chapter = await repository.getChapter(
       bookId: book.id,
       chapterIndex: safeChapterIndex,
@@ -126,6 +166,9 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
       book: book,
       chapter: chapter,
       chapters: chapters,
+      readingProgress: readingProgress?.chapterIndex == safeChapterIndex
+          ? readingProgress
+          : null,
     );
   }
 }

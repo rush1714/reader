@@ -26,11 +26,7 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
 ///
 /// 负责导入、查询、删除图书，以及协调文件系统、解析器和 SQLite。页面不直接操作文件或 SQL。
 class LibraryRepository {
-  LibraryRepository(
-    this._database,
-    this._fileService,
-    this._parser,
-  );
+  LibraryRepository(this._database, this._fileService, this._parser);
 
   final AppDatabase _database;
   final AppFileService _fileService;
@@ -128,6 +124,8 @@ LIMIT 1
     required String bookId,
     required int chapterIndex,
     required double progress,
+    required double scrollOffset,
+    required double chapterProgress,
   }) async {
     final db = await _database.database;
     final now = DateTime.now();
@@ -144,6 +142,8 @@ LIMIT 1
           bookId: bookId,
           chapterIndex: chapterIndex,
           progress: progress,
+          scrollOffset: scrollOffset,
+          chapterProgress: chapterProgress,
           updatedAt: now,
         ).toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,

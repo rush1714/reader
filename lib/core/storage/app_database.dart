@@ -26,8 +26,9 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createSchema,
+      onUpgrade: _upgradeSchema,
     );
     _database = database;
     return database;
@@ -68,6 +69,8 @@ CREATE TABLE reading_progress (
   bookId TEXT PRIMARY KEY,
   chapterIndex INTEGER NOT NULL,
   progress REAL NOT NULL,
+  scrollOffset REAL NOT NULL DEFAULT 0,
+  chapterProgress REAL NOT NULL DEFAULT 0,
   updatedAt TEXT NOT NULL,
   FOREIGN KEY(bookId) REFERENCES books(id) ON DELETE CASCADE
 )
@@ -79,5 +82,20 @@ CREATE TABLE settings (
   value TEXT NOT NULL
 )
 ''');
+  }
+
+  Future<void> _upgradeSchema(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE reading_progress ADD COLUMN scrollOffset REAL NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE reading_progress ADD COLUMN chapterProgress REAL NOT NULL DEFAULT 0',
+      );
+    }
   }
 }
