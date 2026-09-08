@@ -1,16 +1,24 @@
-/// 可供朗读使用的声音。
+/// 可供朗读使用的系统声音。
+///
+/// 这个模型是设置页展示声音列表的统一格式。底层 `flutter_tts` 在 iOS / Android 上返回的
+///字段不完全一样，所以服务层会先把原始 Map 转成这个对象，再交给 UI 展示。
 class SpeechVoice {
   const SpeechVoice({
     required this.id,
+    required this.identifier,
     required this.name,
     required this.locale,
     required this.quality,
     required this.gender,
+    required this.isSiriVoice,
     required this.isPremiumLike,
   });
 
   /// 声音唯一 ID。
   final String id;
+
+  /// 系统返回的原始声音标识。
+  final String identifier;
 
   /// 系统返回的声音名称。
   final String name;
@@ -23,6 +31,12 @@ class SpeechVoice {
 
   /// 系统返回的性别：male / female / unspecified。
   final String gender;
+
+  /// 是否为系统实际返回的 Siri 朗读声音。
+  ///
+  /// 注意：这里的 Siri 只认系统语音列表中的原始 name/identifier 是否包含 `siri`，不会把
+  /// enhanced、premium、neural 等高质量声音误标成 Siri。
+  final bool isSiriVoice;
 
   /// 是否偏向主播级/高品质声音。
   final bool isPremiumLike;
@@ -49,7 +63,7 @@ class SpeechVoice {
   /// 类似 iOS 设置中声音列表的主标题。
   String get title {
     final voiceName = _voiceNameLabel(name);
-    if (voiceName == 'Siri') return 'Siri 声音';
+    if (isSiriVoice || voiceName == 'Siri') return 'Siri 声音';
     if (genderLabel == '声音') return voiceName;
     return '$voiceName · $genderLabel';
   }

@@ -38,12 +38,15 @@ class SystemTtsService implements SpeechEngineService {
           rawVoices
               .whereType<Map<dynamic, dynamic>>()
               .map(_voiceFromMap)
-              .where((voice) => voice.locale.isNotEmpty || voice.name.isNotEmpty),
+              .where(
+                (voice) => voice.locale.isNotEmpty || voice.name.isNotEmpty,
+              ),
         );
       }
 
       final defaultVoice = await _readDefaultVoice();
-      if (defaultVoice != null && !voices.any((voice) => voice.id == defaultVoice.id)) {
+      if (defaultVoice != null &&
+          !voices.any((voice) => voice.id == defaultVoice.id)) {
         voices.insert(0, defaultVoice);
       }
 
@@ -67,9 +70,7 @@ class SystemTtsService implements SpeechEngineService {
     final sessionId = ++_sessionId;
     await _configureAudioSession();
     await _tts.awaitSpeakCompletion(true);
-    await _tts.setSpeechRate(settings.speechRate.clamp(0, 1).toDouble());
-    await _tts.setPitch(settings.pitch.clamp(0.5, 2).toDouble());
-    await _tts.setVolume(settings.volume.clamp(0, 1).toDouble());
+    await _applySpeechParameters(settings);
     await _applyVoiceOrLanguage(settings, content);
 
     _state = SpeechPlaybackState.speaking;
@@ -128,15 +129,11 @@ class SystemTtsService implements SpeechEngineService {
 
   Future<void> _configureAudioSession() async {
     try {
-      await _tts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [
-          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-          IosTextToSpeechAudioCategoryOptions.allowAirPlay,
-        ],
-        IosTextToSpeechAudioMode.spokenAudio,
-      );
+      await _tts.setIosAudioCategory(IosTextToSpeechAudioCategory.playback, [
+        IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+        IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+        IosTextToSpeechAudioCategoryOptions.allowAirPlay,
+      ], IosTextToSpeechAudioMode.spokenAudio);
       await _tts.autoStopSharedSession(false);
       await _tts.setSharedInstance(true);
     } catch (_) {
@@ -144,7 +141,18 @@ class SystemTtsService implements SpeechEngineService {
     }
   }
 
-  Future<void> _applyVoiceOrLanguage(ReaderSettings settings, String text) async {
+  Future<void> _applySpeechParameters(ReaderSettings settings) async {
+    if (settings.usesSystemDefaultSpeechParameters) return;
+
+    await _tts.setSpeechRate(settings.speechRate.clamp(0, 1).toDouble());
+    await _tts.setPitch(settings.pitch.clamp(0.5, 2).toDouble());
+    await _tts.setVolume(settings.volume.clamp(0, 1).toDouble());
+  }
+
+  Future<void> _applyVoiceOrLanguage(
+    ReaderSettings settings,
+    String text,
+  ) async {
     final voice = _decodeVoiceId(settings.voiceId);
     if (voice != null) {
       final locale = voice['locale'];
@@ -177,11 +185,18 @@ class SystemTtsService implements SpeechEngineService {
     return null;
   }
 
-  SpeechVoice _voiceFromMap(Map<dynamic, dynamic> raw, {bool isDefault = false}) {
+  SpeechVoice _voiceFromMap(
+    Map<dynamic, dynamic> raw, {
+    bool isDefault = false,
+  }) {
     final stringMap = raw.map((key, value) => MapEntry('$key', '$value'));
     final identifier = stringMap['identifier'] ?? '';
     final name = stringMap['name'] ?? _nameFromIdentifier(identifier) ?? '默认声音';
-    final locale = stringMap['locale'] ?? stringMap['language'] ?? _localeFromIdentifier(identifier) ?? '';
+    final locale =
+        stringMap['locale'] ??
+        stringMap['language'] ??
+        _localeFromIdentifier(identifier) ??
+        '';
     final quality = stringMap['quality'] ?? (isDefault ? 'default' : '');
     final gender = stringMap['gender'] ?? '';
     final id = _encodeVoiceId({
@@ -190,14 +205,27 @@ class SystemTtsService implements SpeechEngineService {
       'locale': locale,
     });
 
+    final isSiriVoice = _isSiriVoice(name: name, identifier: identifier);
+
     return SpeechVoice(
       id: id,
+      identifier: identifier,
       name: isDefault ? '$name（默认）' : name,
       locale: locale,
       quality: quality,
       gender: gender,
-      isPremiumLike: _isPremiumLike(name: name, quality: quality, identifier: identifier),
+      isSiriVoice: isSiriVoice,
+      isPremiumLike: _isPremiumLike(
+        name: name,
+        quality: quality,
+        identifier: identifier,
+      ),
     );
+  }
+
+  bool _isSiriVoice({required String name, required String identifier}) {
+    final value = '$name $identifier'.toLowerCase();
+    return value.contains('siri');
   }
 
   bool _isPremiumLike({
@@ -206,11 +234,15 @@ class SystemTtsService implements SpeechEngineService {
     required String identifier,
   }) {
     final value = '$name $quality $identifier'.toLowerCase();
-    return value.contains('enhanced') || value.contains('premium') || value.contains('siri') || value.contains('neural');
+    return value.contains('enhanced') ||
+        value.contains('premium') ||
+        value.contains('siri') ||
+        value.contains('neural');
   }
 
   int _compareVoices(SpeechVoice a, SpeechVoice b) {
-    final languageCompare = _languagePriority(a.locale).compareTo(_languagePriority(b.locale));
+    final languageCompare = _languagePriority(a.locale)
+        .compareTo(_languagePriority(b.locale));
     if (languageCompare != 0) return languageCompare;
 
     final qualityCompare = _voicePriority(a).compareTo(_voicePriority(b));
@@ -221,9 +253,15 @@ class SystemTtsService implements SpeechEngineService {
 
   int _languagePriority(String locale) {
     final normalized = locale.replaceAll('_', '-');
-    if (normalized.startsWith('zh-CN') || normalized.startsWith('zh-Hans')) return 0;
-    if (normalized.startsWith('zh-HK') || normalized.startsWith('yue')) return 1;
-    if (normalized.startsWith('zh-TW') || normalized.startsWith('zh-Hant')) return 2;
+    if (normalized.startsWith('zh-CN') || normalized.startsWith('zh-Hans')) {
+      return 0;
+    }
+    if (normalized.startsWith('zh-HK') || normalized.startsWith('yue')) {
+      return 1;
+    }
+    if (normalized.startsWith('zh-TW') || normalized.startsWith('zh-Hant')) {
+      return 2;
+    }
     if (normalized.startsWith('en-US')) return 3;
     if (normalized.startsWith('en-GB')) return 4;
     if (normalized.startsWith('en')) return 5;
@@ -232,7 +270,7 @@ class SystemTtsService implements SpeechEngineService {
 
   int _voicePriority(SpeechVoice voice) {
     final value = '${voice.name} ${voice.quality}'.toLowerCase();
-    if (value.contains('siri')) return 0;
+    if (voice.isSiriVoice) return 0;
     if (value.contains('premium')) return 1;
     if (value.contains('enhanced')) return 2;
     return 3;
@@ -288,7 +326,9 @@ class SystemTtsService implements SpeechEngineService {
           buffer.clear();
         }
         for (var start = 0; start < trimmed.length; start += maxChunkLength) {
-          final end = start + maxChunkLength > trimmed.length ? trimmed.length : start + maxChunkLength;
+          final end = start + maxChunkLength > trimmed.length
+              ? trimmed.length
+              : start + maxChunkLength;
           chunks.add(trimmed.substring(start, end));
         }
         continue;
@@ -316,18 +356,22 @@ class SystemTtsService implements SpeechEngineService {
     return const [
       SpeechVoice(
         id: '||zh-CN',
+        identifier: '',
         name: '默认声音',
         locale: 'zh-CN',
         quality: 'default',
         gender: 'unspecified',
+        isSiriVoice: false,
         isPremiumLike: false,
       ),
       SpeechVoice(
         id: '||en-US',
+        identifier: '',
         name: 'Default',
         locale: 'en-US',
         quality: 'default',
         gender: 'unspecified',
+        isSiriVoice: false,
         isPremiumLike: false,
       ),
     ];

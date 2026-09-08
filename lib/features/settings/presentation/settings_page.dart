@@ -63,21 +63,27 @@ class SettingsPage extends ConsumerWidget {
                     title: '跟随系统',
                     subtitle: '自动切换羊皮暖黄与雅致深蓝',
                     icon: Icons.hdr_auto_rounded,
-                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.system),
+                    onTap: () => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updateThemeMode(ThemeMode.system),
                   ),
                   _ThemeOption(
                     selected: settings.themeMode == ThemeMode.light,
                     title: '羊皮暖黄 (Parchment)',
                     subtitle: '温润经典纸书质感',
                     icon: Icons.auto_stories_rounded,
-                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.light),
+                    onTap: () => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updateThemeMode(ThemeMode.light),
                   ),
                   _ThemeOption(
                     selected: settings.themeMode == ThemeMode.dark,
                     title: '雅致深蓝 (Navy Slate)',
                     subtitle: '深邃沉浸夜读风格',
                     icon: Icons.nights_stay_rounded,
-                    onTap: () => ref.read(readerSettingsProvider.notifier).updateThemeMode(ThemeMode.dark),
+                    onTap: () => ref
+                        .read(readerSettingsProvider.notifier)
+                        .updateThemeMode(ThemeMode.dark),
                   ),
                 ],
               ),
@@ -99,7 +105,9 @@ class SettingsPage extends ConsumerWidget {
                     }).toList(),
                     onChanged: (value) {
                       if (value != null) {
-                        ref.read(readerSettingsProvider.notifier).updateSpeechEngine(value);
+                        ref
+                            .read(readerSettingsProvider.notifier)
+                            .updateSpeechEngine(value);
                       }
                     },
                   ),
@@ -154,8 +162,7 @@ class SettingsPage extends ConsumerWidget {
                   _InfoPanel(
                     icon: Icons.info_outline_rounded,
                     title: '为什么没有 Siri？',
-                    message:
-                        'iOS 不会把“嘿 Siri/个人助理声音”完整开放给第三方 App。系统 TTS 只能列出 AVSpeechSynthesizer 允许使用的朗读声音；如果想要更多高质量中文声音，请在系统“设置 → 辅助功能 → 朗读内容 → 声音 → 中文”里下载增强/高级声音，然后回到这里选择。',
+                    message: 'iOS 不会把“嘿 Siri/个人助理声音”完整开放给第三方 App。系统 TTS 只能列出 AVSpeechSynthesizer 允许使用的朗读声音；如果想要更多高质量中文声音，请在系统“设置 → 辅助功能 → 朗读内容 → 声音 → 中文”里下载增强/高级声音，然后回到这里选择。',
                   ),
                 ],
               ),
@@ -177,9 +184,9 @@ class SettingsPage extends ConsumerWidget {
                 '深阅 · Deep Reader',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -210,23 +217,25 @@ class _SettingsHeader extends StatelessWidget {
               Text(
                 '设置',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1.1,
-                    ),
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1.1,
+                ),
               ),
               const SizedBox(width: 9),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.55,
+                  ),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   'Settings',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -273,7 +282,9 @@ class _SettingsCard extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.62,
+                    ),
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Icon(icon, size: 20, color: colorScheme.primary),
@@ -285,7 +296,8 @@ class _SettingsCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w900,
                               height: 1.1,
                             ),
@@ -293,9 +305,8 @@ class _SettingsCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         subtitle,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -345,9 +356,9 @@ class _SoftBadge extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -382,10 +393,14 @@ class _ThemeOption extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: selected ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5) : Colors.transparent,
+            color: selected
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? colorScheme.primary.withValues(alpha: 0.48) : colorScheme.outline.withValues(alpha: 0.32),
+              color: selected
+                  ? colorScheme.primary.withValues(alpha: 0.48)
+                  : colorScheme.outline.withValues(alpha: 0.32),
             ),
           ),
           child: Row(
@@ -395,7 +410,10 @@ class _ThemeOption extends StatelessWidget {
                 height: 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: selected ? colorScheme.primary : colorScheme.outline, width: 2),
+                  border: Border.all(
+                    color: selected ? colorScheme.primary : colorScheme.outline,
+                    width: 2,
+                  ),
                 ),
                 child: selected
                     ? Center(
@@ -417,16 +435,14 @@ class _ThemeOption extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -440,9 +456,17 @@ class _ThemeOption extends StatelessWidget {
   }
 }
 
+/// 系统语音选择器。
+///
+/// 这个组件负责三件事：
+///
+/// 1. 从系统 TTS 服务加载当前设备实际可用的声音列表。
+/// 2. 先按语言筛选，再让用户选择具体声音。
+/// 3. 单独把系统返回的 Siri voice 列出来，避免把“增强/高级”等其他声音误认为 Siri。
 class _VoiceSelector extends ConsumerWidget {
   const _VoiceSelector({required this.settings});
 
+  /// 当前持久化的阅读/语音设置，用于决定下拉框初始选中项。
   final ReaderSettings settings;
 
   @override
@@ -457,14 +481,27 @@ class _VoiceSelector extends ConsumerWidget {
         message: error.toString(),
       ),
       data: (voices) {
+        // 系统可能返回很多语言的声音，先整理出不重复的语言列表，用第一个下拉框筛选。
         final languages = _languagesFrom(voices);
+
+        // 如果用户上次选择的语言仍然存在，就继续选中；否则回退到系统返回的第一个语言。
         final selectedLocale = languages.contains(settings.speechLocale)
             ? settings.speechLocale
             : (languages.isEmpty ? null : languages.first);
-        final filteredVoices = voices.where((voice) => voice.locale == selectedLocale).toList();
-        final selectedVoice = filteredVoices.any((voice) => voice.id == settings.voiceId)
+
+        // 第二个下拉框只显示当前语言的声音，避免所有国家/地区声音混在一起难找。
+        final filteredVoices = voices
+            .where((voice) => voice.locale == selectedLocale)
+            .toList();
+
+        // 如果保存的 voiceId 在当前语言下仍存在，就继续选中；否则默认选中该语言第一个声音。
+        final selectedVoice =
+            filteredVoices.any((voice) => voice.id == settings.voiceId)
             ? settings.voiceId
             : (filteredVoices.isEmpty ? null : filteredVoices.first.id);
+
+        // 只收集系统返回的真正 Siri 语音：判断逻辑在 SpeechVoice/SystemTtsService 中完成。
+        final siriVoices = voices.where((voice) => voice.isSiriVoice).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -474,14 +511,21 @@ class _VoiceSelector extends ConsumerWidget {
               isExpanded: true,
               decoration: const InputDecoration(labelText: '语言'),
               items: languages.map((locale) {
-                final voice = voices.firstWhere((item) => item.locale == locale);
+                final voice = voices.firstWhere(
+                  (item) => item.locale == locale,
+                );
                 return DropdownMenuItem(
                   value: locale,
-                  child: Text(voice.languageLabel, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    voice.languageLabel,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
               onChanged: (value) {
-                ref.read(readerSettingsProvider.notifier).updateSpeechLocale(value);
+                ref
+                    .read(readerSettingsProvider.notifier)
+                    .updateSpeechLocale(value);
               },
             ),
             const SizedBox(height: 12),
@@ -511,13 +555,23 @@ class _VoiceSelector extends ConsumerWidget {
                         child: ListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          title: Text(voice.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          subtitle: Text(voice.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          title: Text(
+                            voice.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            voice.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       );
                     }).toList(),
                     onChanged: (value) {
-                      ref.read(readerSettingsProvider.notifier).updateVoiceId(value);
+                      ref
+                          .read(readerSettingsProvider.notifier)
+                          .updateVoiceId(value);
                     },
                   ),
                 ),
@@ -529,14 +583,20 @@ class _VoiceSelector extends ConsumerWidget {
                     onPressed: selectedVoice == null
                         ? null
                         : () async {
-                            await ref.read(readerSettingsProvider.notifier).updateVoiceId(selectedVoice);
-                            await ref.read(speechViewModelProvider.notifier).previewCurrentVoice();
+                            await ref
+                                .read(readerSettingsProvider.notifier)
+                                .updateVoiceId(selectedVoice);
+                            await ref
+                                .read(speechViewModelProvider.notifier)
+                                .previewCurrentVoice();
                           },
                     icon: const Icon(Icons.volume_up_outlined),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _SiriVoicesPanel(voices: siriVoices),
           ],
         );
       },
@@ -550,6 +610,43 @@ class _VoiceSelector extends ConsumerWidget {
       locales.add(voice.locale);
     }
     return locales;
+  }
+}
+
+/// Siri 语音说明面板。
+///
+/// 重点：这里不是猜测哪个声音“像 Siri”，而是只展示系统 voice 列表中明确带 Siri 标识的
+/// 条目。如果列表为空，说明当前 iOS 没有把 Siri voice 暴露给这个 App。
+class _SiriVoicesPanel extends StatelessWidget {
+  const _SiriVoicesPanel({required this.voices});
+
+  /// 系统返回且被识别为 Siri 的声音列表。
+  final List<SpeechVoice> voices;
+
+  @override
+  Widget build(BuildContext context) {
+    // 空列表时给出明确原因，防止用户误以为 App 把 Siri 隐藏了。
+    if (voices.isEmpty) {
+      return const _InfoPanel(
+        icon: Icons.record_voice_over_rounded,
+        title: '当前没有发现 Siri 语音',
+        message: '本 App 只把 iOS 系统实际返回、名称或标识包含 Siri 的朗读声音列为 Siri。当前设备没有向 App 返回 Siri 语音；可以到“设置 → 辅助功能 → 朗读内容 → 声音”下载后再回来查看。',
+      );
+    }
+
+    // 有 Siri 时把 identifier 也显示出来，方便确认“这一个就是 Siri”，而不是普通增强声音。
+    return _InfoPanel(
+      icon: Icons.record_voice_over_rounded,
+      title: '已发现 Siri 语音',
+      message: voices
+          .map((voice) {
+            final identifier = voice.identifier.isEmpty
+                ? '无 identifier'
+                : voice.identifier;
+            return '${voice.title} · ${voice.languageLabel}\n$identifier';
+          })
+          .join('\n\n'),
+    );
   }
 }
 
@@ -589,20 +686,22 @@ class _ControlSlider extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.62,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 valueText,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(fontWeight: FontWeight.w900),
               ),
             ),
           ],
@@ -633,8 +732,9 @@ class _ControlSlider extends StatelessWidget {
 
   TextStyle? _sliderLabelStyle(BuildContext context) {
     return Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.76),
-        );
+      color: Theme.of(context).colorScheme.onSurfaceVariant
+          .withValues(alpha: 0.76),
+    );
   }
 }
 
@@ -671,15 +771,16 @@ class _InfoPanel extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   message,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
                 ),
               ],
             ),

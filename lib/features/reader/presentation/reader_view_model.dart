@@ -7,11 +7,16 @@ import 'package:reader_app/features/reader/data/models/reading_progress.dart';
 import 'package:reader_app/features/reader/data/reader_repository.dart';
 
 /// 阅读页状态。
+///
+/// 这是页面一次 build 所需要的所有阅读数据：当前书、当前章、目录、阅读进度，以及为了
+/// 连续章节滑动提前加载的相邻章节。
 class ReaderState {
   const ReaderState({
     required this.book,
     required this.chapter,
     required this.chapters,
+    this.previousChapter,
+    this.nextChapter,
     this.readingProgress,
   });
 
@@ -23,6 +28,12 @@ class ReaderState {
 
   /// 当前图书章节目录。
   final List<ChapterSummary> chapters;
+
+  /// 当前章节的上一章正文，用于连续滚动预加载。
+  final BookChapter? previousChapter;
+
+  /// 当前章节的下一章正文，用于连续滚动预加载。
+  final BookChapter? nextChapter;
 
   /// 打开阅读器时从本地加载的阅读位置。
   final ReadingProgress? readingProgress;
@@ -96,16 +107,50 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
     await _setChapter(chapterIndex);
   }
 
-  /// 保存当前章节的滚动位置。
+  /// 连续滚动进入下一章时，切换“当前章节”状态。
+  ///
+  /// 普通 [nextChapter] / [previousChapter] 是按钮或目录触发的明确跳转，会把进度重置到
+  /// 章首；这个方法只用于页面已经自然滑进下一章的场景，所以不主动把 scrollOffset 写成
+  /// 0，而是保留页面层刚刚计算出来的位置。
+  Future<void> activateChapterFromScroll(int chapterIndex) async {
+    final current = state.value;
+    if (current == null || current.chapter.chapterIndex == chapterIndex) return;
+
+    state = await AsyncValue.guard(() async {
+      final next = await _loadChapter(chapterIndex);
+      ref.invalidate(libraryViewModelProvider);
+      return next;
+    });
+  }
+
+  /// 按章节序号读取正文，但不改变阅读页的当前章节状态。
+  ///
+  /// 连续滚动页面用它按需加载前后章节。这个查询只访问 Repository，不会让
+  /// [ReaderState.chapter] 改变，也不会触发阅读页进入 loading 状态。
+  Future<BookChapter?> getChapterAt(int chapterIndex) {
+    return ref
+        .read(readerRepositoryProvider)
+        .getChapter(bookId: bookId, chapterIndex: chapterIndex);
+  }
+
+  /// 保存阅读位置。
+  ///
+  /// [chapterIndex] 可选：
+  ///
+  /// - 不传时保存当前 ViewModel 里的章节，适用于普通单章节阅读。
+  /// - 传入时保存指定章节，适用于连续滑动时用户已经看到了下一章，但 ViewModel 状态还
+  ///   没完全切过去的瞬间。
   Future<void> saveReadingPosition({
     required double scrollOffset,
     required double chapterProgress,
+    int? chapterIndex,
   }) async {
     final current = state.value;
     if (current == null) return;
 
     await _saveProgress(
       current,
+      chapterIndex: chapterIndex ?? current.chapter.chapterIndex,
       scrollOffset: scrollOffset,
       chapterProgress: chapterProgress,
     );
@@ -123,6 +168,7 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
 
   Future<void> _saveProgress(
     ReaderState next, {
+    int? chapterIndex,
     required double scrollOffset,
     required double chapterProgress,
   }) {
@@ -130,12 +176,18 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
         .read(readerRepositoryProvider)
         .saveProgress(
           book: next.book,
-          chapterIndex: next.chapter.chapterIndex,
+          chapterIndex: chapterIndex ?? next.chapter.chapterIndex,
           scrollOffset: scrollOffset,
           chapterProgress: chapterProgress,
         );
   }
 
+  /// 加载一个章节及其阅读页需要的上下文。
+  ///
+  /// 除了当前章节本身，还会读取上一章和下一章：
+  ///
+  /// - `previousChapter` 为后续支持向下连续滑回上一章预留。
+  /// - `nextChapter` 当前已经用于章末继续向上滑动时无缝接下一章。
   Future<ReaderState> _loadChapter(
     int chapterIndex, {
     ReadingProgress? readingProgress,
@@ -162,10 +214,25 @@ class ReaderViewModel extends AsyncNotifier<ReaderState> {
       throw StateError('没有找到章节内容。');
     }
 
+    final previousChapter = safeChapterIndex <= 0
+        ? null
+        : await repository.getChapter(
+            bookId: book.id,
+            chapterIndex: safeChapterIndex - 1,
+          );
+    final nextChapter = safeChapterIndex >= book.chapterCount - 1
+        ? null
+        : await repository.getChapter(
+            bookId: book.id,
+            chapterIndex: safeChapterIndex + 1,
+          );
+
     return ReaderState(
       book: book,
       chapter: chapter,
       chapters: chapters,
+      previousChapter: previousChapter,
+      nextChapter: nextChapter,
       readingProgress: readingProgress?.chapterIndex == safeChapterIndex
           ? readingProgress
           : null,

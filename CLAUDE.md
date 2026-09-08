@@ -47,6 +47,17 @@ If the local global Flutter cache is problematic, the README notes the pinned bi
 /Users/guobiao/fvm/versions/3.47.0/bin/flutter --version
 ```
 
+## Code comments
+
+The user reads the source code to learn from it. All future code changes should include detailed Chinese comments, especially in `lib/` Dart code.
+
+- Public classes, public methods, providers, models, and service/repository methods must have Dart doc comments (`///`) explaining their role and why they exist.
+- Complex private helpers should also have `///` comments, not only public APIs.
+- For UI pages and widgets, explain what each widget/component represents, how state flows through it, and why callbacks are wired that way.
+- For non-obvious statements, state changes, async callbacks, timers, scroll math, persistence decisions, parsing rules, and platform-specific behavior, add inline `//` comments near the relevant lines.
+- Prefer “learning comments” that explain intent and trade-offs, not comments that merely repeat syntax.
+- When adding new code, match the existing code style but err on the side of more explanation.
+
 ## Architecture
 
 The app follows a feature-first MVVM + Repository + Service structure:

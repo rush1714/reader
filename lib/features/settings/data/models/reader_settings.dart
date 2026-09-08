@@ -54,6 +54,16 @@ class ReaderSettings {
   /// 朗读音量，取值范围 0.0 - 1.0。
   final double volume;
 
+  /// 是否使用系统 TTS 的原生默认语速/音调/音量。
+  ///
+  /// 旧版本会主动设置 speechRate/pitch/volume。iOS 的屏幕朗读之所以更自然，是因为它
+  /// 直接使用系统默认参数；因此默认值组合表示“不覆盖系统参数”。
+  bool get usesSystemDefaultSpeechParameters {
+    return speechRate == ReaderSettings.defaults().speechRate &&
+        pitch == ReaderSettings.defaults().pitch &&
+        volume == ReaderSettings.defaults().volume;
+  }
+
   ReaderSettings copyWith({
     double? fontSize,
     ThemeMode? themeMode,
@@ -68,8 +78,12 @@ class ReaderSettings {
       fontSize: fontSize ?? this.fontSize,
       themeMode: themeMode ?? this.themeMode,
       speechEngine: speechEngine ?? this.speechEngine,
-      speechLocale: identical(speechLocale, _notProvided) ? this.speechLocale : speechLocale as String?,
-      voiceId: identical(voiceId, _notProvided) ? this.voiceId : voiceId as String?,
+      speechLocale: identical(speechLocale, _notProvided)
+          ? this.speechLocale
+          : speechLocale as String?,
+      voiceId: identical(voiceId, _notProvided)
+          ? this.voiceId
+          : voiceId as String?,
       speechRate: speechRate ?? this.speechRate,
       pitch: pitch ?? this.pitch,
       volume: volume ?? this.volume,
@@ -94,11 +108,15 @@ class ReaderSettings {
 
     return ReaderSettings(
       fontSize: (map['fontSize'] as num?)?.toDouble() ?? defaults.fontSize,
-      themeMode: _themeModeFromName(map['themeMode'] as String?) ?? defaults.themeMode,
-      speechEngine: _speechEngineFromName(map['speechEngine'] as String?) ?? defaults.speechEngine,
+      themeMode:
+          _themeModeFromName(map['themeMode'] as String?) ?? defaults.themeMode,
+      speechEngine:
+          _speechEngineFromName(map['speechEngine'] as String?) ??
+          defaults.speechEngine,
       speechLocale: map['speechLocale'] as String? ?? defaults.speechLocale,
       voiceId: map['voiceId'] as String?,
-      speechRate: (map['speechRate'] as num?)?.toDouble() ?? defaults.speechRate,
+      speechRate:
+          (map['speechRate'] as num?)?.toDouble() ?? defaults.speechRate,
       pitch: (map['pitch'] as num?)?.toDouble() ?? defaults.pitch,
       volume: (map['volume'] as num?)?.toDouble() ?? defaults.volume,
     );
