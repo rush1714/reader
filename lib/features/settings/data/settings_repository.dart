@@ -42,21 +42,18 @@ class SettingsRepository {
   /// 保存阅读器设置。
   Future<void> saveSettings(ReaderSettings settings) async {
     final db = await _database.database;
-    await db.insert(
-      'settings',
-      {
-        'key': _settingsKey,
-        'value': jsonEncode(settings.toMap()),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('settings', {
+      'key': _settingsKey,
+      'value': jsonEncode(settings.toMap()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
 
 /// 设置页和 App 根组件共享的设置状态。
-final readerSettingsProvider = AsyncNotifierProvider<ReaderSettingsController, ReaderSettings>(
-  ReaderSettingsController.new,
-);
+final readerSettingsProvider =
+    AsyncNotifierProvider<ReaderSettingsController, ReaderSettings>(
+      ReaderSettingsController.new,
+    );
 
 /// 阅读器设置控制器。
 ///
@@ -84,7 +81,9 @@ class ReaderSettingsController extends AsyncNotifier<ReaderSettings> {
 
   /// 更新朗读语言，并清空当前声音，避免语言和声音不匹配。
   Future<void> updateSpeechLocale(String? locale) {
-    return _update((settings) => settings.copyWith(speechLocale: locale, voiceId: null));
+    return _update(
+      (settings) => settings.copyWith(speechLocale: locale, voiceId: null),
+    );
   }
 
   /// 更新声音 ID。
@@ -107,7 +106,29 @@ class ReaderSettingsController extends AsyncNotifier<ReaderSettings> {
     return _update((settings) => settings.copyWith(volume: value));
   }
 
-  Future<void> _update(ReaderSettings Function(ReaderSettings settings) transform) async {
+  /// 一键恢复更接近系统朗读的自然语音配置。
+  ///
+  /// 这里不重置字号和主题，只处理语音相关字段：
+  ///
+  /// - 保留用户当前语言；没有语言时回到默认中文普通话。
+  /// - 清空 voiceId，让 SystemTtsService 自动选择当前语言下质量最高的公开声音。
+  /// - 恢复默认语速/音调/音量，避免用户之前的实验参数继续影响 Siri/高级声音的自然度。
+  Future<void> resetSpeechToNaturalDefaults() {
+    final defaults = ReaderSettings.defaults();
+    return _update(
+      (settings) => settings.copyWith(
+        speechLocale: settings.speechLocale ?? defaults.speechLocale,
+        voiceId: null,
+        speechRate: defaults.speechRate,
+        pitch: defaults.pitch,
+        volume: defaults.volume,
+      ),
+    );
+  }
+
+  Future<void> _update(
+    ReaderSettings Function(ReaderSettings settings) transform,
+  ) async {
     final previous = state.value ?? ReaderSettings.defaults();
     final next = transform(previous);
 

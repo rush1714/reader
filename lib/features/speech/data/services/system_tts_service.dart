@@ -18,6 +18,13 @@ class SystemTtsService implements SpeechEngineService {
   SpeechPlaybackState _state = SpeechPlaybackState.idle;
   int _sessionId = 0;
 
+  /// 系统声音缓存。
+  ///
+  /// `AVSpeechSynthesisVoice.speechVoices()`/Android voice 查询通常不重，但每朗读一句都查一遍
+  /// 仍然会带来不必要的平台通道开销。缓存后，设置页第一次加载声音列表或首次朗读会填充它；
+  /// 如果用户刚在系统设置里下载了新声音，重启 App 或重新进入进程即可刷新。
+  List<SpeechVoice>? _cachedVoices;
+
   @override
   SpeechEngineType get type => SpeechEngineType.system;
 
@@ -29,6 +36,9 @@ class SystemTtsService implements SpeechEngineService {
 
   @override
   Future<List<SpeechVoice>> listVoices() async {
+    final cachedVoices = _cachedVoices;
+    if (cachedVoices != null) return cachedVoices;
+
     try {
       final rawVoices = await _tts.getVoices;
       final voices = <SpeechVoice>[];
@@ -56,8 +66,11 @@ class SystemTtsService implements SpeechEngineService {
       }
 
       final sorted = uniqueVoices.values.toList()..sort(_compareVoices);
-      return sorted.isEmpty ? _fallbackVoices : sorted;
+      final result = sorted.isEmpty ? _fallbackVoices : sorted;
+      _cachedVoices = result;
+      return result;
     } catch (_) {
+      _cachedVoices = _fallbackVoices;
       return _fallbackVoices;
     }
   }
@@ -141,6 +154,11 @@ class SystemTtsService implements SpeechEngineService {
     }
   }
 
+  /// 应用用户手动调整过的朗读参数。
+  ///
+  /// iOS 的屏幕朗读和 App 内 [FlutterTts] 走的是不同的系统入口，因此“不设置参数”也不
+  /// 保证能得到屏幕朗读相同的声线。这里仍然只在用户显式调整后覆盖参数，默认保留系统
+  /// 引擎参数，避免再次把 Siri voice 的原始节奏和音调改坏。
   Future<void> _applySpeechParameters(ReaderSettings settings) async {
     if (settings.usesSystemDefaultSpeechParameters) return;
 
@@ -155,22 +173,69 @@ class SystemTtsService implements SpeechEngineService {
   ) async {
     final voice = _decodeVoiceId(settings.voiceId);
     if (voice != null) {
+      final identifier = voice['identifier'];
+      if (identifier != null && identifier.isNotEmpty) {
+        // iOS / macOS 必须用 identifier 选定具体 AVSpeechSynthesisVoice；只传语言或名字
+        // 可能回退到同语言的默认紧凑声音，听起来就和用户选中的 Siri 声音不同。
+        final result = await _tts.setVoice({'identifier': identifier});
+        if (result == 1) return;
+      }
+
       final locale = voice['locale'];
       if (locale != null && locale.isNotEmpty) {
         await _tts.setLanguage(locale);
       }
 
-      final identifier = voice['identifier'];
-      if (identifier != null && identifier.isNotEmpty) {
-        await _tts.setVoice({'identifier': identifier});
-        return;
-      }
-
+      // 没有 identifier 的平台才使用 name + locale 组合。
       await _tts.setVoice(voice);
       return;
     }
 
-    await _tts.setLanguage(settings.speechLocale ?? _guessLanguage(text));
+    final locale = settings.speechLocale ?? _guessLanguage(text);
+
+    // 未指定 voiceId 时不再简单调用 setLanguage。iOS 对 setLanguage 往往会回到紧凑/标准
+    // 声音，听感会明显输给“朗读内容”里下载的增强、高级或 Siri 声音。这里主动扫描系统
+    // 公开的 voice 列表，自动选同语言里质量最高的一条；用户仍可在设置页手动固定某个声音。
+    final bestVoice = await _bestVoiceForLocale(locale);
+    if (bestVoice?.identifier.isNotEmpty ?? false) {
+      final result = await _tts.setVoice({'identifier': bestVoice!.identifier});
+      if (result == 1) return;
+    }
+    if (bestVoice != null &&
+        bestVoice.name.isNotEmpty &&
+        !bestVoice.id.startsWith('||')) {
+      // Android 的 voice 往往没有 iOS identifier，但可以用 name + locale 精确选择。
+      // 在这种情况下也要调用 setVoice，否则自动优选会退化成普通 setLanguage。
+      final result = await _tts.setVoice({
+        'name': _rawVoiceName(bestVoice.name),
+        'locale': bestVoice.locale,
+      });
+      if (result == 1) return;
+    }
+
+    await _tts.setLanguage(locale);
+  }
+
+  /// 为当前语言自动选择最自然的系统声音。
+  ///
+  /// 选择策略偏向“真实可用的高质量声音”而不是固定某个名字：不同 iOS/Android 版本、地区和
+  /// 已下载语音包返回的 voice 名称并不一致，所以先按 locale 兼容性过滤，再复用
+  /// [_compareVoices] 中的质量排序，把 Siri / Premium / Enhanced / Neural 之类声音排前面。
+  Future<SpeechVoice?> _bestVoiceForLocale(String locale) async {
+    final voices = await listVoices();
+    final candidates =
+        voices
+            .where((voice) => _isLocaleCompatible(voice.locale, locale))
+            .toList()
+          ..sort((a, b) => _compareVoicesForRequestedLocale(a, b, locale));
+    if (candidates.isEmpty) return null;
+
+    // 优先返回能通过 identifier 精确选中的 voice。只按 name/locale 选择时，不同平台可能再次
+    // 回落到普通质量；identifier 是 iOS 上最可靠的“我就要这条声音”的方式。
+    return candidates.firstWhere(
+      (voice) => voice.identifier.isNotEmpty,
+      orElse: () => candidates.first,
+    );
   }
 
   Future<SpeechVoice?> _readDefaultVoice() async {
@@ -251,29 +316,106 @@ class SystemTtsService implements SpeechEngineService {
     return a.title.compareTo(b.title);
   }
 
+  /// 针对某次朗读语言排序候选声音。
+  ///
+  /// 全局声音列表会把中文、英文等按固定顺序排好；但真正朗读时必须先尊重用户当前选择的
+  /// locale。例如用户选了 `en-GB`，就应该优先英国英语，而不是被全局排序里的 `en-US`
+  /// 抢到前面。locale 精确度相同后，再比较声音质量。
+  int _compareVoicesForRequestedLocale(
+    SpeechVoice a,
+    SpeechVoice b,
+    String requestedLocale,
+  ) {
+    final localeCompare = _requestedLocalePriority(
+      a.locale,
+      requestedLocale,
+    ).compareTo(_requestedLocalePriority(b.locale, requestedLocale));
+    if (localeCompare != 0) return localeCompare;
+
+    final qualityCompare = _voicePriority(a).compareTo(_voicePriority(b));
+    if (qualityCompare != 0) return qualityCompare;
+
+    return a.title.compareTo(b.title);
+  }
+
   int _languagePriority(String locale) {
-    final normalized = locale.replaceAll('_', '-');
-    if (normalized.startsWith('zh-CN') || normalized.startsWith('zh-Hans')) {
+    final normalized = locale.replaceAll('_', '-').toLowerCase();
+    if (normalized.startsWith('zh-cn') || normalized.startsWith('zh-hans')) {
       return 0;
     }
-    if (normalized.startsWith('zh-HK') || normalized.startsWith('yue')) {
+    if (normalized.startsWith('zh-hk') || normalized.startsWith('yue')) {
       return 1;
     }
-    if (normalized.startsWith('zh-TW') || normalized.startsWith('zh-Hant')) {
+    if (normalized.startsWith('zh-tw') || normalized.startsWith('zh-hant')) {
       return 2;
     }
-    if (normalized.startsWith('en-US')) return 3;
-    if (normalized.startsWith('en-GB')) return 4;
+    if (normalized.startsWith('en-us')) return 3;
+    if (normalized.startsWith('en-gb')) return 4;
     if (normalized.startsWith('en')) return 5;
     return 20;
   }
 
+  /// 判断系统 voice 的语言是否能服务用户当前选择的语言。
+  ///
+  /// 语言代码在不同平台上可能出现 `zh-CN`、`zh-Hans-CN`、`cmn-Hans-CN` 等变体。
+  /// 如果只做字符串相等，可能错过同一个普通话语音；这里把常见中文/英文变体归一化成
+  /// “普通话简体、普通话繁体、粤语、英语”等族群，再做匹配。
+  bool _isLocaleCompatible(String voiceLocale, String requestedLocale) {
+    if (voiceLocale.isEmpty || requestedLocale.isEmpty) return false;
+
+    final voiceFamily = _localeFamily(voiceLocale);
+    final requestedFamily = _localeFamily(requestedLocale);
+    if (voiceFamily == requestedFamily) return true;
+
+    final normalizedVoice = voiceLocale.replaceAll('_', '-').toLowerCase();
+    final normalizedRequested = requestedLocale
+        .replaceAll('_', '-')
+        .toLowerCase();
+    return normalizedVoice.startsWith(normalizedRequested) ||
+        normalizedRequested.startsWith(normalizedVoice);
+  }
+
+  /// 计算 voice locale 和用户请求 locale 的贴合程度，数值越小越适合。
+  int _requestedLocalePriority(String voiceLocale, String requestedLocale) {
+    final normalizedVoice = voiceLocale.replaceAll('_', '-').toLowerCase();
+    final normalizedRequested = requestedLocale
+        .replaceAll('_', '-')
+        .toLowerCase();
+    if (normalizedVoice == normalizedRequested) return 0;
+    if (normalizedVoice.startsWith(normalizedRequested) ||
+        normalizedRequested.startsWith(normalizedVoice)) {
+      return 1;
+    }
+    if (_localeFamily(voiceLocale) == _localeFamily(requestedLocale)) return 2;
+    return 10;
+  }
+
+  /// 把平台语言代码归并成用于自动选声的粗粒度族群。
+  String _localeFamily(String locale) {
+    final normalized = locale.replaceAll('_', '-').toLowerCase();
+    if (normalized.startsWith('yue') || normalized.contains('zh-hk')) {
+      return 'zh-yue';
+    }
+    if (normalized.contains('hant') ||
+        normalized.contains('zh-tw') ||
+        normalized.contains('zh-mo')) {
+      return 'zh-hant';
+    }
+    if (normalized.startsWith('zh') || normalized.startsWith('cmn')) {
+      return 'zh-hans';
+    }
+    if (normalized.startsWith('en')) return 'en';
+    return normalized.split('-').first;
+  }
+
   int _voicePriority(SpeechVoice voice) {
-    final value = '${voice.name} ${voice.quality}'.toLowerCase();
+    final value = '${voice.name} ${voice.quality} ${voice.identifier}'
+        .toLowerCase();
     if (voice.isSiriVoice) return 0;
     if (value.contains('premium')) return 1;
     if (value.contains('enhanced')) return 2;
-    return 3;
+    if (value.contains('neural')) return 3;
+    return 4;
   }
 
   String _encodeVoiceId(Map<String, String> voice) {
@@ -301,6 +443,11 @@ class SystemTtsService implements SpeechEngineService {
   String? _nameFromIdentifier(String identifier) {
     if (identifier.isEmpty || !identifier.contains('.')) return null;
     return identifier.split('.').last;
+  }
+
+  /// 去掉 UI 为“默认 voice”添加的中文提示后缀，还原平台 setVoice 需要的原始 name。
+  String _rawVoiceName(String name) {
+    return name.replaceFirst('（默认）', '');
   }
 
   String? _localeFromIdentifier(String identifier) {

@@ -43,6 +43,9 @@ class ReaderSettings {
   final String? speechLocale;
 
   /// 当前选择的声音 ID。
+  ///
+  /// 为 null 时不是“没有声音”，而是交给系统 TTS 服务按语言自动挑选 Siri / 高级 /
+  /// 增强等更自然的系统公开声音；只有用户在设置页手动固定某个 voice 时才会保存具体 ID。
   final String? voiceId;
 
   /// 朗读速度，取值范围 0.0 - 1.0。

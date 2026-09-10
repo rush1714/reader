@@ -113,6 +113,20 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _VoiceSelector(settings: settings),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.tonalIcon(
+                      // 用户觉得声音“很机械”时，最常见原因是之前固定了某条标准音色，
+                      // 或者把语速/音调调离了系统默认值。这个按钮只恢复语音相关设置，
+                      // 不影响阅读字号、主题等个人偏好。
+                      onPressed: () => ref
+                          .read(readerSettingsProvider.notifier)
+                          .resetSpeechToNaturalDefaults(),
+                      icon: const Icon(Icons.auto_fix_high_rounded),
+                      label: const Text('恢复推荐语音'),
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   _ControlSlider(
                     title: '语速',
@@ -466,6 +480,12 @@ class _ThemeOption extends StatelessWidget {
 class _VoiceSelector extends ConsumerWidget {
   const _VoiceSelector({required this.settings});
 
+  /// 下拉菜单中“自动选择最佳声音（推荐）”的特殊值。
+  ///
+  /// 它不会写入真实 voice identifier；选择该值时会把 ReaderSettings.voiceId 清空，让
+  /// 服务层根据语言和 voice 质量自动挑选当前设备最自然的系统朗读声音。
+  static const _systemDefaultVoiceId = '__system_default_voice__';
+
   /// 当前持久化的阅读/语音设置，用于决定下拉框初始选中项。
   final ReaderSettings settings;
 
@@ -494,11 +514,13 @@ class _VoiceSelector extends ConsumerWidget {
             .where((voice) => voice.locale == selectedLocale)
             .toList();
 
-        // 如果保存的 voiceId 在当前语言下仍存在，就继续选中；否则默认选中该语言第一个声音。
-        final selectedVoice =
-            filteredVoices.any((voice) => voice.id == settings.voiceId)
+        // voiceId 为 null 时代表“自动优选”，而不是“没有选择”。服务层会按当前语言从
+        // 系统公开 voice 列表中挑出 Siri / 高级 / 增强等更自然的声音，避免落回紧凑声线。
+        final selectedVoice = settings.voiceId == null
+            ? _systemDefaultVoiceId
+            : filteredVoices.any((voice) => voice.id == settings.voiceId)
             ? settings.voiceId
-            : (filteredVoices.isEmpty ? null : filteredVoices.first.id);
+            : _systemDefaultVoiceId;
 
         // 只收集系统返回的真正 Siri 语音：判断逻辑在 SpeechVoice/SystemTtsService 中完成。
         final siriVoices = voices.where((voice) => voice.isSiriVoice).toList();
@@ -538,40 +560,66 @@ class _VoiceSelector extends ConsumerWidget {
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: '声音'),
                     selectedItemBuilder: (context) {
-                      return filteredVoices.map((voice) {
-                        return Align(
+                      return [
+                        const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            voice.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList();
-                    },
-                    items: filteredVoices.map((voice) {
-                      return DropdownMenuItem(
-                        value: voice.id,
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            voice.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            voice.description,
+                            '自动选择最佳声音（推荐）',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      );
-                    }).toList(),
+                        ...filteredVoices.map((voice) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              voice.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ];
+                    },
+                    items: [
+                      const DropdownMenuItem(
+                        value: _systemDefaultVoiceId,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('自动选择最佳声音（推荐）'),
+                          subtitle: Text('优先使用当前语言的 Siri / 高级 / 增强声音'),
+                        ),
+                      ),
+                      ...filteredVoices.map((voice) {
+                        return DropdownMenuItem(
+                          value: voice.id,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              voice.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              voice.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
                     onChanged: (value) {
+                      // 特殊菜单值不保存为 voiceId；保存 null 才会触发 SystemTtsService 的
+                      // “按语言自动优选高质量声音”逻辑。
+                      final voiceId = value == _systemDefaultVoiceId
+                          ? null
+                          : value;
                       ref
                           .read(readerSettingsProvider.notifier)
-                          .updateVoiceId(value);
+                          .updateVoiceId(voiceId);
                     },
                   ),
                 ),
@@ -580,20 +628,28 @@ class _VoiceSelector extends ConsumerWidget {
                   dimension: 48,
                   child: IconButton.filledTonal(
                     tooltip: '试听声音',
-                    onPressed: selectedVoice == null
-                        ? null
-                        : () async {
-                            await ref
-                                .read(readerSettingsProvider.notifier)
-                                .updateVoiceId(selectedVoice);
-                            await ref
-                                .read(speechViewModelProvider.notifier)
-                                .previewCurrentVoice();
-                          },
+                    // 自动优选也可以试听：清空 voiceId 后让服务层按当前语言挑最好的公开声音。
+                    onPressed: () async {
+                      final voiceId = selectedVoice == _systemDefaultVoiceId
+                          ? null
+                          : selectedVoice;
+                      await ref
+                          .read(readerSettingsProvider.notifier)
+                          .updateVoiceId(voiceId);
+                      await ref
+                          .read(speechViewModelProvider.notifier)
+                          .previewCurrentVoice();
+                    },
                     icon: const Icon(Icons.volume_up_outlined),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            const _InfoPanel(
+              icon: Icons.auto_awesome_rounded,
+              title: '自动选择最佳声音（推荐）',
+              message: '不固定某条普通 Voice，而是按当前语言优先挑选系统公开的 Siri / 高级 / 增强声音。若声音仍不自然，请先到系统“朗读内容”里下载更高质量中文声音，再回到这里试听。',
             ),
             const SizedBox(height: 12),
             _SiriVoicesPanel(voices: siriVoices),
