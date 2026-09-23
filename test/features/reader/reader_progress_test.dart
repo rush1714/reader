@@ -17,15 +17,18 @@ void main() {
       currentChapterIndex: 0,
     );
 
+    const chapter = BookChapter(
+      id: 'chapter-1',
+      bookId: 'book-1',
+      chapterIndex: 0,
+      title: '第一章',
+      content: '正文',
+    );
+
     final state = ReaderState(
       book: book,
-      chapter: const BookChapter(
-        id: 'chapter-1',
-        bookId: 'book-1',
-        chapterIndex: 0,
-        title: '第一章',
-        content: '正文',
-      ),
+      chapter: chapter,
+      allChapters: const [chapter],
       chapters: const [],
     );
 
@@ -44,15 +47,18 @@ void main() {
       currentChapterIndex: 9,
     );
 
+    const chapter = BookChapter(
+      id: 'chapter-10',
+      bookId: 'book-1',
+      chapterIndex: 9,
+      title: '第十章',
+      content: '正文',
+    );
+
     final state = ReaderState(
       book: book,
-      chapter: const BookChapter(
-        id: 'chapter-10',
-        bookId: 'book-1',
-        chapterIndex: 9,
-        title: '第十章',
-        content: '正文',
-      ),
+      chapter: chapter,
+      allChapters: const [chapter],
       chapters: const [],
     );
 
@@ -71,15 +77,18 @@ void main() {
       currentChapterIndex: 2,
     );
 
+    const chapter = BookChapter(
+      id: 'chapter-3',
+      bookId: 'book-1',
+      chapterIndex: 2,
+      title: '第三章',
+      content: '正文',
+    );
+
     final state = ReaderState(
       book: book,
-      chapter: const BookChapter(
-        id: 'chapter-3',
-        bookId: 'book-1',
-        chapterIndex: 2,
-        title: '第三章',
-        content: '正文',
-      ),
+      chapter: chapter,
+      allChapters: const [chapter],
       chapters: const [],
       readingProgress: ReadingProgress(
         bookId: 'book-1',

@@ -41,6 +41,21 @@ class ReaderRepository {
     return rows.map(ChapterSummary.fromMap).toList();
   }
 
+  /// 一次性加载指定图书的全部章节正文。
+  ///
+  /// 阅读页使用一个稳定的全书章节列表来滚动。这里按章节序号排序后整体返回，后续 UI
+  /// 仍通过懒构建列表创建可见章节 Widget，不会一次性把所有章节视图都塞进渲染树。
+  Future<List<BookChapter>> listFullChapters(String bookId) async {
+    final db = await _database.database;
+    final rows = await db.query(
+      'chapters',
+      where: 'bookId = ?',
+      whereArgs: [bookId],
+      orderBy: 'chapterIndex ASC',
+    );
+    return rows.map(BookChapter.fromMap).toList();
+  }
+
   /// 加载指定章节。
   Future<BookChapter?> getChapter({
     required String bookId,
